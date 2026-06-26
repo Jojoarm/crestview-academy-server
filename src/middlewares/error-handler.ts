@@ -1,54 +1,124 @@
 import type { NextFunction, Request, Response } from 'express';
-import logger from '../utils/logger.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { success } from 'zod';
 import { env } from '../utils/env.js';
+import logger from '../utils/logger.js';
+
+// App Error
+
+export interface AppError extends Error {
+  statusCode: number;
+  isOperational: boolean;
+}
+
+export const createAppError = (
+  message: string,
+  statusCode = 500,
+  isOperational = true,
+): AppError => {
+  const error = new Error(message) as AppError;
+
+  error.statusCode = statusCode;
+  error.isOperational = isOperational;
+
+  Error.captureStackTrace(error, createAppError);
+
+  return error;
+};
+
+export const createError = (message: string, statusCode = 500) =>
+  createAppError(message, statusCode);
+
+//  Logging Helpers
+const shouldLogError = (
+  err: Error & Partial<AppError>,
+  status: number,
+): boolean => {
+  // Always log in development
+  if (env.NODE_ENV !== 'production') return true;
+
+  // Always log server errors
+  if (status >= 500) return true;
+
+  // Log unexpected client errors
+  if (status >= 400 && !err.isOperational) return true;
+
+  // Ignore expected operational errors (404, 409, etc.)
+  return false;
+};
+
+// Error Handler
 
 export const errorHandler = (
-  err: Error,
+  err: Error & Partial<AppError>,
   req: Request,
   res: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ) => {
-  logger.error(`[ERROR] ${req.method} ${req.path}`, err);
+  let status = err.statusCode ?? 500;
+  let message = err.message;
 
-  // prisma known request errors
+  // Prisma known request errors
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    if (err.code === 'P2002') {
-      return res.status(409).json({
-        success: false,
-        message: 'A record with this value already exists',
-        field: err.meta?.target,
-      });
-    }
-    if ((err.code = 'P2025')) {
-      return res.status(404).json({
-        success: false,
-        message: 'Record not found',
-      });
+    switch (err.code) {
+      case 'P2002':
+        status = 409;
+        message = 'A record with this value already exists';
+        break;
+
+      case 'P2025':
+        status = 404;
+        message = 'Record not found';
+        break;
+
+      default:
+        status = 400;
+        message = err.message;
     }
   }
 
-  //prisma validation errors
+  // Prisma validation errors
   if (err instanceof Prisma.PrismaClientValidationError) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid data provided',
-    });
+    status = 400;
+    message = 'Invalid data provided';
   }
 
-  //  generic errors
-  const statusCode = (err as any).statusCode ?? 500;
-  return res.status(statusCode).json({
+  // Log if necessary
+  if (shouldLogError(err, status)) {
+    const logData = {
+      status,
+      method: req.method,
+      path: req.originalUrl,
+      ip: req.ip,
+      message: err.message,
+      stack: err.stack,
+    };
+
+    if (status >= 500) {
+      logger.error(logData);
+    } else {
+      logger.warn(logData);
+    }
+  }
+
+  // Don't leak server errors in production
+  const clientMessage =
+    status >= 500 && env.NODE_ENV === 'production'
+      ? 'Something went wrong'
+      : message;
+
+  return res.status(status).json({
     success: false,
-    message:
-      env.NODE_ENV === 'production' ? 'Something went wrong' : err.message,
+    message: clientMessage,
+    ...(env.NODE_ENV !== 'production' && {
+      stack: err.stack,
+    }),
   });
 };
 
+// 404 Handler
 export const notFound = (req: Request, res: Response) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.method} ${req.path} not found`,
+    message: `Route ${req.method} ${req.originalUrl} not found`,
   });
 };

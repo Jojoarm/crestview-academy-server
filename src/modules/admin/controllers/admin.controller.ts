@@ -23,7 +23,7 @@ export const clearForcePassword = catchAsync(
 // GET /api/admin/users — list all users, optional ?role= filter
 export const getUsers = catchAsync(async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
   const userRole = req.query.userRole as UserRole;
 
   const result = await adminService.getAllUsers({ page, limit }, userRole);

@@ -9,6 +9,15 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  user
+  super_admin
+  admin
+  teacher
+  parent
+  student
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -84,11 +93,40 @@ model Verification {
   @@map("verifications")
 }
 
-enum UserRole {
-  user
-  super_admin
-  admin
-  teacher
-  parent
-  student
+
+
+enum TermName {
+  First
+  Second
+  Third
+}
+
+model AcademicSession {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "2025/2026"
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  terms Term[]
+
+  @@map("academic_sessions")
+}
+
+model Term {
+  id        String   @id @default(cuid())
+  name      TermName
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, name]) // one term per name per session
+  @@map("terms")
 }
