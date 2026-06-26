@@ -16,7 +16,6 @@ async function main() {
 
   logger.info(`Seeding super admin: ${email}`);
 
-  // Check if already seeded
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (existing) {
@@ -24,35 +23,27 @@ async function main() {
     return;
   }
 
-  // Use Better Auth's API to create the user properly
-  // This ensures the password is hashed correctly by Better Auth
+  // Use Better Auth to create the user so password is hashed correctly
   const { user } = await auth.api.signUpEmail({
-    body: {
-      email,
-      password,
-      name,
-    },
+    body: { email, password, name },
   });
 
-  // Create the Admin record linked to the user
-  await prisma.admin.create({
-    data: {
-      userId: user.id,
-      role: 'SUPER_ADMIN',
-      isActive: true,
-    },
-  });
-
-  // Mark email as verified since this is a seed — no email needed
+  // Set role to super_admin, mark verified, no forced password change
   await prisma.user.update({
     where: { id: user.id },
-    data: { emailVerified: true },
+    data: {
+      role: 'admin',
+      userRole: 'super_admin',
+      emailVerified: true,
+      forcePasswordChange: false,
+    },
   });
 
-  logger.info(`Super admin created successfully`);
-  logger.info(`Email: ${email}`);
-  logger.info(`Role: SUPER_ADMIN`);
-  logger.info(`\nYou can now log in at ${process.env.FRONTEND_URL}/auth/login`);
+  logger.info('Super admin created successfully');
+  logger.info(`Email:    ${email}`);
+  logger.info(`User Role:     super_admin`);
+  logger.info(`Login at: ${process.env.FRONTEND_URL}/auth/login`);
+  logger.info('Remember to change your password after first login.');
 }
 
 main()

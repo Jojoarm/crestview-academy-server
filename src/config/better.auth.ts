@@ -1,9 +1,10 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { admin } from 'better-auth/plugins';
 import prisma from './prisma.js';
 import redisClient from './redis.client.js';
 import { env } from '../utils/env.js';
-import { sendInviteEmail, sendPasswordResetEmail } from '../utils/mailer.js';
+import { sendPasswordResetEmail } from '../utils/mailer.js';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -30,18 +31,34 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
 
+    // Forgot password flow — sends reset link via Brevo
     sendResetPassword: async ({ user, url }) => {
-      await sendPasswordResetEmail({ to: user.email, name: user.name, url });
+      await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        url,
+      });
     },
   },
 
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: false,
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendInviteEmail({ to: user.email, name: user.name, url });
+  // Better Auth admin plugin — handles role management, ban, impersonation
+  plugins: [admin()],
+
+  // additional fields to be shown
+  user: {
+    additionalFields: {
+      userRole: {
+        type: 'string',
+        required: false,
+        input: false,
+      },
+      forcePasswordChange: {
+        type: 'boolean',
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
     },
   },
 

@@ -20,7 +20,7 @@ app.use(
 );
 
 // Better Auth - Handles all /api/auth/* routes (login, logout, verify, reset-password etc.)
-app.all('/api/auth/*path', toNodeHandler(auth));
+app.all('/api/auth/*splat', toNodeHandler(auth));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

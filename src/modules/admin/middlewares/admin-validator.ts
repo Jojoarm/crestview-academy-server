@@ -1,16 +1,30 @@
 import type { Request, Response, NextFunction } from 'express';
-import { success, z } from 'zod';
+import { z } from 'zod';
 
-const createAdminSchema = z.object({
+const ALL_ROLES = [
+  'super_admin',
+  'admin',
+  'teacher',
+  'parent',
+  'student',
+] as const;
+
+const createUserSchema = z.object({
   email: z.email({ message: 'Invalid email address' }),
   name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN']).optional(),
+  temporaryPassword: z
+    .string()
+    .min(8, { message: 'Temporary password must be at least 8 characters' }),
+  userRole: z.enum(ALL_ROLES, { error: 'Invalid role' }),
 });
 
-const updateAdminSchema = z.object({
+const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN']).optional(),
-  isActive: z.boolean().optional(),
+  userRole: z.enum(ALL_ROLES, { error: 'Invalid role' }).optional(),
+});
+
+const banUserSchema = z.object({
+  reason: z.string().min(3).optional(),
 });
 
 const validate =
@@ -32,5 +46,6 @@ const validate =
     next();
   };
 
-export const validateCreateAdmin = validate(createAdminSchema);
-export const validateUpdateAdmin = validate(updateAdminSchema);
+export const validateCreateUser = validate(createUserSchema);
+export const validateUpdateUser = validate(updateUserSchema);
+export const validateBanUser = validate(banUserSchema);

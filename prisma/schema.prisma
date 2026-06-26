@@ -18,23 +18,35 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Better Auth admin plugin fields
+  role          String?
+  userRole      UserRole?   // "admin" | "super_admin" | "teacher" | "parent" | "student"
+  banned        Boolean?
+  banReason     String?
+  banExpires    DateTime?
+
+  // Our custom field — forces password change on first login
+  forcePasswordChange Boolean @default(false)
+
   // Relations
   sessions      Session[]
   accounts      Account[]
-  admin         Admin?
 
   @@map("users")
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Better Auth admin plugin field
+  impersonatedBy String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -72,22 +84,11 @@ model Verification {
   @@map("verifications")
 }
 
-// ADMIN
-
-enum AdminRole {
-  SUPER_ADMIN
-  ADMIN
-}
-
-model Admin {
-  id        String    @id @default(cuid())
-  userId    String    @unique
-  role      AdminRole @default(ADMIN)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("admins")
+enum UserRole {
+  user
+  super_admin
+  admin
+  teacher
+  parent
+  student
 }

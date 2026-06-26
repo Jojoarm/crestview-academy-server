@@ -1,21 +1,26 @@
-import type {
-  Admin,
-  AdminRole,
-  User,
-} from '../../../generated/prisma/client.js';
+import type { UserRole } from '../../../generated/prisma/enums.js';
 
-export type AdminWithUser = Admin & {
-  user: User;
-};
-
-export type CreateAdminInput = {
+export type CreateUserInput = {
   email: string;
   name: string;
-  role?: AdminRole;
+  temporaryPassword: string;
+  userRole: UserRole;
 };
 
-export type UpdateAdminInput = {
+export type UpdateUserInput = {
   name?: string;
-  role?: AdminRole;
-  isActive?: boolean;
+  userRole?: UserRole;
+};
+
+export type ManagedUser = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  role: string | null;
+  userRole: UserRole | null;
+  banned: boolean | null;
+  forcePasswordChange: boolean | null;
+  createdAt: Date;
+  updatedAt: Date;
 };

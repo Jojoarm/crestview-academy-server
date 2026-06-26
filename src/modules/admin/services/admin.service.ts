@@ -1,33 +1,54 @@
+import type { IncomingHttpHeaders } from 'node:http';
 import prisma from '../../../config/prisma.js';
-import { AdminRole } from '../../../generated/prisma/enums.js';
 import type {
   PaginatedResponse,
   PaginationQuery,
 } from '../../../types/common.types.js';
 import type {
-  AdminWithUser,
-  CreateAdminInput,
-  UpdateAdminInput,
+  CreateUserInput,
+  UpdateUserInput,
+  ManagedUser,
 } from '../types/admin.types.js';
+import { auth } from '../../../config/better.auth.js';
+import { fromNodeHeaders } from 'better-auth/node';
+import { sendInviteEmail } from '../../../utils/mailer.js';
+import { convertRole } from '../../../utils/convert-role.js';
+import type { UserRole } from '../../../generated/prisma/enums.js';
 
-export const getAllAdmins = async ({
-  page = 1,
-  limit = 20,
-}: PaginationQuery): Promise<PaginatedResponse<AdminWithUser>> => {
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  emailVerified: true,
+  role: true,
+  userRole: true,
+  banned: true,
+  forcePasswordChange: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
+// Get all users (optionally filter by role)
+export const getAllUsers = async (
+  { page = 1, limit = 20 }: PaginationQuery,
+  userRole?: UserRole,
+): Promise<PaginatedResponse<ManagedUser>> => {
   const skip = (page - 1) * limit;
+  const where = userRole ? { userRole } : {};
 
-  const [admins, total] = await prisma.$transaction([
-    prisma.admin.findMany({
+  const [users, total] = await prisma.$transaction([
+    prisma.user.findMany({
+      where,
       skip,
       take: limit,
-      include: { user: true },
       orderBy: { createdAt: 'desc' },
+      select: userSelect,
     }),
-    prisma.admin.count(),
+    prisma.user.count({ where }),
   ]);
 
   return {
-    data: admins,
+    data: users,
     meta: {
       total,
       page,
@@ -37,84 +58,106 @@ export const getAllAdmins = async ({
   };
 };
 
-// Get a single admin by their userId
-export const getAdminByUserId = async (
-  userId: string,
-): Promise<AdminWithUser | null> => {
-  return prisma.admin.findUnique({
-    where: { userId },
-    include: { user: true },
-  });
-};
-
-// Get a single admin by their admin Id
-export const getAdminById = async (
-  id: string,
-): Promise<AdminWithUser | null> => {
-  return prisma.admin.findUnique({
+// get a user by id
+export const getUserById = async (id: string): Promise<ManagedUser | null> => {
+  return prisma.user.findUnique({
     where: { id },
-    include: { user: true },
+    select: userSelect,
   });
 };
 
-// Create a new admin — creates the User record first, then the Admin record
-// This is used by SUPER_ADMIN to invite a new admin by email
-export const createAdmin = async (
-  input: CreateAdminInput,
-): Promise<AdminWithUser> => {
-  return prisma.$transaction(async (tx) => {
-    // Upsert the user — if they already have a User record
-    // just link the Admin to that existing user
-    const user = await tx.user.upsert({
-      where: { email: input.email },
-      update: {},
-      create: {
-        email: input.email,
-        name: input.name,
-        emailVerified: false,
-      },
-    });
-
-    const admin = await tx.admin.create({
-      data: {
-        userId: user.id,
-        role: input.role ?? AdminRole.ADMIN,
-      },
-      include: { user: true },
-    });
-
-    return admin;
+// Create a user (any role) via Better Auth admin plugin
+export const createUser = async (
+  input: CreateUserInput,
+  headers: IncomingHttpHeaders,
+): Promise<ManagedUser> => {
+  // Better auth creates the user + hashes the password
+  const result = await auth.api.createUser({
+    body: {
+      email: input.email,
+      password: input.temporaryPassword,
+      name: input.name,
+      // better auth uses two roles: user or admin
+      role: convertRole(input.userRole),
+    },
+    headers: fromNodeHeaders(headers),
   });
+
+  // Flag for forced password change on first login
+  const user = await prisma.user.update({
+    where: { id: result.user.id },
+    data: {
+      userRole: input.userRole,
+      forcePasswordChange: true,
+    },
+  });
+
+  // Send invite email with temporary credentials
+  await sendInviteEmail({
+    to: input.email,
+    name: input.name,
+    temporaryPassword: input.temporaryPassword,
+  });
+
+  return user;
 };
 
-// Update an existing admin's role or active status
-export const updateAdmin = async (
+// Update user name or role
+export const updateUser = async (
   id: string,
-  input: UpdateAdminInput,
-): Promise<AdminWithUser> => {
-  return prisma.admin.update({
+  input: UpdateUserInput,
+  headers: IncomingHttpHeaders,
+): Promise<ManagedUser> => {
+  // Update Better Auth role only if admin privileges changed
+  if (input.userRole) {
+    await auth.api.setRole({
+      body: {
+        userId: id,
+        role: convertRole(input.userRole),
+      },
+      headers: fromNodeHeaders(headers),
+    });
+  }
+
+  return prisma.user.update({
     where: { id },
     data: {
-      ...(input.role !== undefined && { role: input.role }),
-      ...(input.isActive !== undefined && { isActive: input.isActive }),
-      ...(input.name !== undefined && {
-        user: { update: { name: input.name } },
-      }),
+      ...(input.name && { name: input.name }),
+      ...(input.userRole && { userRole: input.userRole }),
     },
-    include: { user: true },
+    select: userSelect,
   });
 };
 
-// soft deactivate an admin
-export const deactivateAdmin = async (id: string): Promise<AdminWithUser> => {
-  return prisma.admin.update({
-    where: { id },
-    data: { isActive: false },
-    include: { user: true },
+// Ban a user
+export const banUser = async (
+  id: string,
+  reason: string,
+  headers: IncomingHttpHeaders,
+): Promise<void> => {
+  await auth.api.banUser({
+    body: { userId: id, banReason: reason },
+    headers: fromNodeHeaders(headers),
   });
 };
 
-// Hard delete — only use when absolutely necessary
-export const deleteAdmin = async (id: string): Promise<void> => {
-  await prisma.admin.delete({ where: { id } });
+// Hard delete
+export const deleteUser = async (
+  id: string,
+  headers: IncomingHttpHeaders,
+): Promise<void> => {
+  await auth.api.removeUser({
+    body: { userId: id },
+    headers: fromNodeHeaders(headers),
+  });
+};
+
+// clear forcePasswordChange after user sets own password
+export const clearForcePasswordChange = async (
+  userId: string,
+): Promise<void> => {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { forcePasswordChange: false },
+  });
 };

@@ -1,59 +1,37 @@
-import type { NextFunction, Request, Response } from 'express';
-import { success } from 'zod';
-import prisma from '../config/prisma.js';
+import type { Request, Response, NextFunction } from 'express';
 
-export const requireAdmin = async (
+const ADMIN_ROLES = ['admin', 'super_admin'];
+
+// Checks user has an admin or super_admin role
+export const requireAdmin = (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
-  try {
-    const userId = req.user?.id;
+  const role = req.user?.userRole;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized!',
-      });
-    }
-
-    const admin = await prisma.admin.findUnique({
-      where: { userId },
-      include: { user: true },
+  if (!role || !ADMIN_ROLES.includes(role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden — admin access required',
     });
-
-    if (!admin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden! Admin access required!!!',
-      });
-    }
-
-    if (!admin.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden! Your admin account as been deactivated.',
-      });
-    }
-
-    req.admin = admin;
-    next();
-  } catch (error) {
-    next(error);
   }
+
+  next();
 };
 
-// Extra gate for SUPER_ADMIN only routes (e.g. creating/deleting other admins)
-export const requireSuperAdmin = async (
+// Extra gate for super_admin only routes
+export const requireSuperAdmin = (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
-  if (req.admin?.role !== 'SUPER_ADMIN') {
+  if (req.user?.userRole !== 'super_admin') {
     return res.status(403).json({
       success: false,
       message: 'Forbidden — super admin access required',
     });
   }
+
   next();
 };
