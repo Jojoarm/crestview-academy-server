@@ -130,3 +130,52 @@ model Term {
   @@unique([sessionId, name]) // one term per name per session
   @@map("terms")
 }
+
+enum Section {
+  Kindergarten
+  Nursery
+  Primary
+  Secondary
+}
+
+model ClassLevel {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "JSS1", "Primary 3"
+  section   Section
+  order     Int      // for consistent sorting within a section
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classArms ClassArm[]
+
+  @@map("class_levels")
+}
+
+model Arm {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "A", "Gold", "Silver"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classArms ClassArm[]
+
+  @@map("arms")
+}
+
+model ClassArm {
+  id        String   @id @default(cuid())
+  capacity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classLevelId String
+  classLevel   ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+
+  armId String
+  arm   Arm    @relation(fields: [armId], references: [id], onDelete: Cascade)
+
+  @@unique([classLevelId, armId]) // an arm can only be assigned once per class
+  @@map("class_arms")
+}
