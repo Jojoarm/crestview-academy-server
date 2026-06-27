@@ -148,6 +148,7 @@ model ClassLevel {
   updatedAt DateTime @updatedAt
 
   classArms ClassArm[]
+  subjectAssignments   SubjectAssignment[]
 
   @@map("class_levels")
 }
@@ -178,4 +179,34 @@ model ClassArm {
 
   @@unique([classLevelId, armId]) // an arm can only be assigned once per class
   @@map("class_arms")
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g. "Mathematics"
+  code        String   @unique // e.g. "MTH"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  classAssignments SubjectAssignment[]
+
+  @@map("subjects")
+}
+
+model SubjectAssignment {
+  id          String   @id @default(cuid())
+  isCompulsory Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subjectId    String
+  subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  classLevelId String
+  classLevel   ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, classLevelId])
+  @@map("subject_assignments")
 }

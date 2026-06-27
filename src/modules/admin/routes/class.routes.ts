@@ -10,6 +10,7 @@ import {
   removeClassArm,
 } from '../controllers/class.controller.js';
 import { requireAdmin } from '../../../middlewares/require-admin.js';
+import { getSubjectsByClassLevel } from '../controllers/subject.controller.js';
 
 const router = Router();
 
@@ -26,5 +27,8 @@ router.delete('/:id', deleteClassLevel);
 router.post('/:id/arms', assignArm);
 router.patch('/:id/arms/:armId', updateClassArm);
 router.delete('/:id/arms/:armId', removeClassArm);
+
+// Class-Subject Routes
+router.get('/:id/subjects', getSubjectsByClassLevel);
 
 export default router;

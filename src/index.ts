@@ -8,6 +8,7 @@ import adminRoutes from './modules/admin/routes/admin.routes.js';
 import sessionRouter from './modules/admin/routes/session.routes.js';
 import classRouter from './modules/admin/routes/class.routes.js';
 import armRouter from './modules/admin/routes/arm.routes.js';
+import subjectRouter from './modules/admin/routes/subject.routes.js';
 import { env } from './utils/env.js';
 import logger from './utils/logger.js';
 
@@ -32,6 +33,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin/sessions', sessionRouter);
 app.use('/api/admin/classes', classRouter);
 app.use('/api/admin/arms', armRouter);
+app.use('/api/admin/subjects', subjectRouter);
 
 // Health check
 app.get('/health', (_, res) => {
