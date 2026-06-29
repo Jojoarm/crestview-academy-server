@@ -41,7 +41,10 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  @@map("users")
+  classArmTeachers ClassArmTeacher[] @relation("ClassArmTeacher")
+  subjectTeachers SubjectTeacher[] @relation("SubjectTeacher")
+
+  @@map("users") 
 }
 
 model Session {
@@ -112,7 +115,11 @@ model AcademicSession {
 
   terms Term[]
 
+  classArmTeachers ClassArmTeacher[]
+  subjectTeachers SubjectTeacher[]
+
   @@map("academic_sessions")
+  
 }
 
 model Term {
@@ -177,6 +184,9 @@ model ClassArm {
   armId String
   arm   Arm    @relation(fields: [armId], references: [id], onDelete: Cascade)
 
+  subjectTeachers SubjectTeacher[]
+  classArmTeachers ClassArmTeacher[]
+
   @@unique([classLevelId, armId]) // an arm can only be assigned once per class
   @@map("class_arms")
 }
@@ -191,6 +201,7 @@ model Subject {
   updatedAt   DateTime @updatedAt
 
   classAssignments SubjectAssignment[]
+  subjectTeachers SubjectTeacher[]
 
   @@map("subjects")
 }
@@ -209,4 +220,45 @@ model SubjectAssignment {
 
   @@unique([subjectId, classLevelId])
   @@map("subject_assignments")
+}
+
+model ClassArmTeacher {
+  id        String   @id @default(cuid())
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id], onDelete: Cascade)
+
+  teacherId String
+  teacher   User   @relation("ClassArmTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([classArmId, teacherId, sessionId]) // same teacher can't be assigned twice to the same arm in the same session, but multiple different teachers can.
+  @@map("class_arm_teachers")
+}
+
+model SubjectTeacher {
+  id        String   @id @default(cuid())
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id], onDelete: Cascade)
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  teacherId String
+  teacher   User   @relation("SubjectTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([classArmId, subjectId, teacherId, sessionId]) // same teacher can't be assigned twice to the same subject in the same class, in the same session, but multiple different teachers can.
+  @@map("subject_teachers")
 }

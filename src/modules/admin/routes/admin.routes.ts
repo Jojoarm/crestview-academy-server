@@ -10,11 +10,13 @@ import * as adminController from '../controllers/admin.controller.js';
 
 const router = Router();
 
-// All routes require a valid session + admin role
-router.use(requireAuth, requireAdmin);
+router.use(requireAuth);
 
 router.get('/me', adminController.getMe);
 router.post('/me/clear-force-password', adminController.clearForcePassword);
+
+// All routes require a valid session + admin role
+router.use(requireAdmin);
 
 router.get('/users', adminController.getUsers);
 router.get('/users/:id', adminController.getUser);
