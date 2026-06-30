@@ -119,6 +119,7 @@ model AcademicSession {
   subjectTeachers SubjectTeacher[]
 
   feeStructures FeeStructure[]
+  timetableEntries TimetableEntry[]
 
   @@map("academic_sessions")
 }
@@ -192,6 +193,8 @@ model ClassArm {
   subjectTeachers SubjectTeacher[]
   classArmTeachers ClassArmTeacher[]
 
+  timetableEntries TimetableEntry[]
+
   @@unique([classLevelId, armId]) // an arm can only be assigned once per class
   @@map("class_arms")
 }
@@ -207,6 +210,8 @@ model Subject {
 
   classAssignments SubjectAssignment[]
   subjectTeachers SubjectTeacher[]
+
+  timetableEntries TimetableEntry[]
 
   @@map("subjects")
 }
@@ -316,4 +321,51 @@ model FeeStructureItem {
 
   @@unique([feeStructureId, feeTypeId])
   @@map("fee_structure_items")
+}
+
+enum DayOfWeek {
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+}
+
+model PeriodSlot {
+  id        String   @id @default(cuid())
+  section   Section
+  name      String   // e.g. "Period 1", "Short Break", "Lunch"
+  startTime String   // stored as "HH:mm" 24hr format, e.g. "08:00"
+  endTime   String   // stored as "HH:mm" 24hr format, e.g. "08:40"
+  order     Int      // for sorting within a section's day
+  isBreak   Boolean  @default(false) // true = break/lunch, no subject attached
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timetableEntries TimetableEntry[]
+
+  @@unique([section, order])
+  @@map("period_slots")
+}
+
+model TimetableEntry {
+  id        String    @id @default(cuid())
+  dayOfWeek DayOfWeek
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id], onDelete: Cascade)
+
+  periodSlotId String
+  periodSlot   PeriodSlot @relation(fields: [periodSlotId], references: [id], onDelete: Cascade)
+
+  subjectId String? // null when periodSlot.isBreak is true
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([classArmId, periodSlotId, dayOfWeek, sessionId])
+  @@map("timetable_entries")
 }

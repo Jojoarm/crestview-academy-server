@@ -4,16 +4,7 @@ import helmet from 'helmet';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/better.auth.js';
 import { errorHandler, notFound } from './middlewares/error-handler.js';
-import adminRoutes from './modules/admin/routes/admin.routes.js';
-import sessionRouter from './modules/admin/routes/session.routes.js';
-import classRouter from './modules/admin/routes/class.routes.js';
-import armRouter from './modules/admin/routes/arm.routes.js';
-import subjectRouter from './modules/admin/routes/subject.routes.js';
-import teacherAssignmentRouter from './modules/admin/routes/teacher-assignment.routes.js';
-import {
-  feeTypeRouter,
-  feeStructureRouter,
-} from './modules/admin/routes/fee-structure.routes.js';
+import adminRouter from './modules/admin/index.js';
 import { env } from './utils/env.js';
 import logger from './utils/logger.js';
 
@@ -35,14 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Admin routes
-app.use('/api/admin', adminRoutes);
-app.use('/api/admin/sessions', sessionRouter);
-app.use('/api/admin/classes', classRouter);
-app.use('/api/admin/arms', armRouter);
-app.use('/api/admin/subjects', subjectRouter);
-app.use('/api/admin/class-arms', teacherAssignmentRouter);
-app.use('/api/admin/fee-types', feeTypeRouter);
-app.use('/api/admin/fee-structures', feeStructureRouter);
+app.use('/api/admin', adminRouter);
 
 // Health check
 app.get('/health', (_, res) => {
