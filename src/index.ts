@@ -10,6 +10,10 @@ import classRouter from './modules/admin/routes/class.routes.js';
 import armRouter from './modules/admin/routes/arm.routes.js';
 import subjectRouter from './modules/admin/routes/subject.routes.js';
 import teacherAssignmentRouter from './modules/admin/routes/teacher-assignment.routes.js';
+import {
+  feeTypeRouter,
+  feeStructureRouter,
+} from './modules/admin/routes/fee-structure.routes.js';
 import { env } from './utils/env.js';
 import logger from './utils/logger.js';
 
@@ -30,12 +34,15 @@ app.all('/api/auth/*splat', toNodeHandler(auth));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Admin routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/sessions', sessionRouter);
 app.use('/api/admin/classes', classRouter);
 app.use('/api/admin/arms', armRouter);
 app.use('/api/admin/subjects', subjectRouter);
 app.use('/api/admin/class-arms', teacherAssignmentRouter);
+app.use('/api/admin/fee-types', feeTypeRouter);
+app.use('/api/admin/fee-structures', feeStructureRouter);
 
 // Health check
 app.get('/health', (_, res) => {
