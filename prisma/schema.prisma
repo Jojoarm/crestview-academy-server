@@ -43,6 +43,7 @@ model User {
 
   classArmTeachers ClassArmTeacher[] @relation("ClassArmTeacher")
   subjectTeachers SubjectTeacher[] @relation("SubjectTeacher")
+  posts Post[] @relation("PostAuthor")
 
   @@map("users") 
 }
@@ -368,4 +369,46 @@ model TimetableEntry {
 
   @@unique([classArmId, periodSlotId, dayOfWeek, sessionId])
   @@map("timetable_entries")
+}
+
+enum PostType {
+  Announcement
+  News
+  Event
+}
+
+enum PostAudience {
+  Everyone
+  Teachers
+  Parents
+  Students
+  Admins
+}
+
+enum PostStatus {
+  Draft
+  Published
+}
+
+model Post {
+  id              String       @id @default(cuid())
+  title           String
+  content         String
+  type            PostType
+  audience        PostAudience @default(Everyone)
+  status          PostStatus   @default(Draft)
+  bannerImageUrl  String?
+
+  // Only relevant when type = Event
+  eventStartDate  DateTime?
+  eventEndDate    DateTime?
+
+  publishedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  authorId String
+  author   User   @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
 }

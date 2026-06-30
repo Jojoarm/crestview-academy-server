@@ -14,6 +14,7 @@ import {
   periodSlotRouter,
   classArmTimetableRouter,
 } from './routes/time-table.routes.js';
+import postRouter from './routes/post.routes.js';
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use('/class-arms', classArmTimetableRouter);
 router.use('/fee-types', feeTypeRouter);
 router.use('/fee-structures', feeStructureRouter);
 router.use('/period-slots', periodSlotRouter);
+router.use('/posts', postRouter);
 
 export default router;
