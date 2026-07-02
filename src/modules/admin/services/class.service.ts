@@ -50,7 +50,6 @@ export const classService = {
       data: {
         name: data.name,
         section: data.section,
-        order: data.order,
       },
       include: classLevelInclude,
     });
@@ -75,7 +74,7 @@ export const classService = {
         where,
         skip,
         take: limit,
-        orderBy: [{ section: 'asc' }, { order: 'asc' }],
+        orderBy: [{ section: 'asc' }, { name: 'asc' }],
         include: classLevelInclude,
       }),
       prisma.classLevel.count({ where }),
@@ -121,7 +120,6 @@ export const classService = {
       data: {
         ...(data.name && { name: data.name }),
         ...(data.section && { section: data.section }),
-        ...(data.order && { order: data.order }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
       include: classLevelInclude,

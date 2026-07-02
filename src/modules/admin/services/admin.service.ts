@@ -14,6 +14,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { sendInviteEmail } from '../../../utils/mailer.js';
 import { convertRole } from '../../../utils/convert-role.js';
 import type { UserRole } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
 
 const userSelect = {
   id: true,
@@ -28,13 +29,35 @@ const userSelect = {
   updatedAt: true,
 };
 
-// Get all users (optionally filter by role)
+// Get all users (optionally filter by role, search by name/email, and paginate)
 export const getAllUsers = async (
   { page = 1, limit = 20 }: PaginationQuery,
   userRole?: UserRole,
+  search?: string,
 ): Promise<PaginatedResponse<ManagedUser>> => {
   const skip = (page - 1) * limit;
-  const where = userRole ? { userRole } : {};
+  const where: Prisma.UserWhereInput = {};
+
+  if (userRole) {
+    where.userRole = userRole;
+  }
+
+  if (search) {
+    where.OR = [
+      {
+        name: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      },
+      {
+        email: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      },
+    ];
+  }
 
   const [users, total] = await prisma.$transaction([
     prisma.user.findMany({
@@ -56,14 +79,6 @@ export const getAllUsers = async (
       totalPages: Math.ceil(total / limit),
     },
   };
-};
-
-// get a user by id
-export const getUserById = async (id: string): Promise<ManagedUser | null> => {
-  return prisma.user.findUnique({
-    where: { id },
-    select: userSelect,
-  });
 };
 
 // Create a user (any role) via Better Auth admin plugin
@@ -141,6 +156,17 @@ export const banUser = async (
   });
 };
 
+// Unban a user
+export const unbanUser = async (
+  id: string,
+  headers: IncomingHttpHeaders,
+): Promise<void> => {
+  await auth.api.unbanUser({
+    body: { userId: id },
+    headers: fromNodeHeaders(headers),
+  });
+};
+
 // Hard delete
 export const deleteUser = async (
   id: string,
@@ -152,12 +178,18 @@ export const deleteUser = async (
   });
 };
 
-// clear forcePasswordChange after user sets own password
-export const clearForcePasswordChange = async (
-  userId: string,
-): Promise<void> => {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { forcePasswordChange: false },
-  });
+// User stats
+export const getUserStats = async () => {
+  const [total, teachers, parents, students, admins] =
+    await prisma.$transaction([
+      prisma.user.count(),
+      prisma.user.count({ where: { userRole: 'teacher' } }),
+      prisma.user.count({ where: { userRole: 'parent' } }),
+      prisma.user.count({ where: { userRole: 'student' } }),
+      prisma.user.count({
+        where: { userRole: { in: ['admin', 'super_admin'] } },
+      }),
+    ]);
+
+  return { total, teachers, parents, students, admins };
 };

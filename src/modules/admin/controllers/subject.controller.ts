@@ -3,6 +3,7 @@ import { catchAsync } from '../../../utils/catch-async.js';
 import {
   assignClassLevelSchema,
   createSubjectSchema,
+  subjectQuerySchema,
   updateSubjectAssignmentSchema,
   updateSubjectSchema,
 } from '../middlewares/subject-validation.js';
@@ -23,7 +24,14 @@ export const listSubjects = catchAsync(async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
   const limit = Math.min(Number(req.query.limit) || 20, 100);
 
-  const result = await subjectService.listSubjects({ page, limit });
+  const queryParsed = subjectQuerySchema.safeParse(req.query);
+  if (!queryParsed.success)
+    return sendError(res, queryParsed.error.issues[0]?.message, 400);
+
+  const result = await subjectService.listSubjects(
+    { page, limit },
+    queryParsed.data,
+  );
   return sendSuccess(res, result, 'Subjects retrieved successfully');
 });
 

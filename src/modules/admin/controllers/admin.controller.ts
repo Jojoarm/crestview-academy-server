@@ -3,30 +3,23 @@ import * as adminService from '../services/admin.service.js';
 import { catchAsync } from '../../../utils/catch-async.js';
 import { sendError, sendSuccess } from '../../../utils/api-response.js';
 import type { UserRole } from '../../../generated/prisma/enums.js';
+import { getUserById } from '../../auth/services/auth.service.js';
 
-// GET /admin/me — get currently signed-in admin's own profile
-export const getMe = catchAsync(async (req: Request, res: Response) => {
-  const user = await adminService.getUserById(req.user!.id);
-
-  return sendSuccess(res, user, 'Profile retrieved');
-});
-
-// POST /api/admin/me/clear-force-password — called after first password change
-export const clearForcePassword = catchAsync(
-  async (req: Request, res: Response) => {
-    await adminService.clearForcePasswordChange(req.user!.id);
-
-    return sendSuccess(res, null, 'Password flag cleared');
-  },
-);
-
-// GET /api/admin/users — list all users, optional ?role= filter
+// GET /api/admin/users — list all users, optional ?role= filter, // optional ?search= filter, optional ?page= and ?limit= for pagination
 export const getUsers = catchAsync(async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
   const limit = Math.min(Number(req.query.limit) || 20, 100);
-  const userRole = req.query.userRole as UserRole;
 
-  const result = await adminService.getAllUsers({ page, limit }, userRole);
+  const userRole = req.query.userRole as UserRole | undefined;
+
+  const search =
+    typeof req.query.search === 'string' ? req.query.search.trim() : undefined;
+
+  const result = await adminService.getAllUsers(
+    { page, limit },
+    userRole,
+    search,
+  );
   return sendSuccess(res, result, 'Users retrieved');
 });
 
@@ -38,7 +31,7 @@ export const getUser = catchAsync(async (req: Request, res: Response) => {
     return sendError(res, 'User ID is required', 400);
   }
 
-  const user = await adminService.getUserById(id as string);
+  const user = await getUserById(id as string);
 
   if (!user) {
     return sendError(res, 'User not found', 404);
@@ -112,6 +105,17 @@ export const banUser = catchAsync(async (req: Request, res: Response) => {
   return sendSuccess(res, null, 'User banned');
 });
 
+export const unbanUser = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  if (id === req.user?.id) {
+    return sendError(res, 'You cannot unban your own account', 400);
+  }
+
+  await adminService.unbanUser(id as string, req.headers);
+  return sendSuccess(res, null, 'User unbanned successfully');
+});
+
 // DELETE /api/admin/users/:id — hard delete
 export const deleteUser = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -126,4 +130,9 @@ export const deleteUser = catchAsync(async (req: Request, res: Response) => {
 
   await adminService.deleteUser(id as string, req.headers);
   return sendSuccess(res, null, 'User deleted');
+});
+
+export const getUserStats = catchAsync(async (_req: Request, res: Response) => {
+  const stats = await adminService.getUserStats();
+  return sendSuccess(res, stats, 'User stats retrieved successfully');
 });

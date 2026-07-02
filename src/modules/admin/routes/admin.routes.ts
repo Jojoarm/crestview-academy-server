@@ -10,19 +10,16 @@ import * as adminController from '../controllers/admin.controller.js';
 
 const router = Router();
 
-router.use(requireAuth);
-
-router.get('/me', adminController.getMe);
-router.post('/me/clear-force-password', adminController.clearForcePassword);
-
 // All routes require a valid session + admin role
-router.use(requireAdmin);
+router.use(requireAuth, requireAdmin);
 
 router.get('/users', adminController.getUsers);
+router.get('/users/stats', adminController.getUserStats);
 router.get('/users/:id', adminController.getUser);
 router.post('/users', validateCreateUser, adminController.createUser);
 router.patch('/users/:id', validateUpdateUser, adminController.updateUser);
 router.patch('/users/:id/ban', validateBanUser, adminController.banUser);
+router.patch('/users/:id/unban', adminController.unbanUser);
 router.delete('/users/:id', adminController.deleteUser);
 
 export default router;

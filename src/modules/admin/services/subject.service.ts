@@ -7,6 +7,7 @@ import type {
 import type {
   AssignClassLevelInput,
   CreateSubjectInput,
+  SubjectQuery,
   UpdateSubjectAssignmentInput,
   UpdateSubjectInput,
 } from '../middlewares/subject-validation.js';
@@ -19,7 +20,7 @@ import type {
 const subjectInclude = {
   classAssignments: {
     include: { classLevel: true },
-    orderBy: { classLevel: { order: 'asc' as const } },
+    orderBy: { classLevel: { name: 'asc' as const } },
   },
 };
 
@@ -50,30 +51,45 @@ export const subjectService = {
   },
 
   //   List subjects
-  async listSubjects({
-    page = 1,
-    limit = 20,
-  }: PaginationQuery): Promise<PaginatedResponse<SubjectWithAssignments>> {
+  async listSubjects(
+    { page = 1, limit = 20 }: PaginationQuery,
+    query: SubjectQuery,
+  ): Promise<PaginatedResponse<SubjectWithAssignments>> {
     const skip = (page - 1) * limit;
+
+    const where = {
+      ...(query.search && {
+        name: { contains: query.search, mode: 'insensitive' as const },
+      }),
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
+      ...(query.classLevelId || query.section
+        ? {
+            classAssignments: {
+              some: {
+                classLevel: {
+                  ...(query.classLevelId && { id: query.classLevelId }),
+                  ...(query.section && { section: query.section }),
+                },
+              },
+            },
+          }
+        : {}),
+    };
 
     const [subjects, total] = await prisma.$transaction([
       prisma.subject.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { name: 'asc' },
         include: subjectInclude,
       }),
-      prisma.subject.count(),
+      prisma.subject.count({ where }),
     ]);
 
     return {
       data: subjects,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   },
 

@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+export const sectionEnum = z.enum(
+  ['Kindergarten', 'Nursery', 'Primary', 'Secondary'],
+  { error: 'Section must be Kindergarten, Nursery, Primary, or Secondary' },
+);
+
 // Subject Schemas
 
 export const createSubjectSchema = z.object({
@@ -37,6 +42,16 @@ export const assignClassLevelSchema = z.object({
   isCompulsory: z.boolean().default(false),
 });
 
+export const subjectQuerySchema = z.object({
+  search: z.string().optional(),
+  section: sectionEnum.optional(),
+  classLevelId: z.string().optional(),
+  isActive: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional(),
+});
+
 export const updateSubjectAssignmentSchema = z.object({
   isCompulsory: z.boolean(),
 });
@@ -45,6 +60,7 @@ export const updateSubjectAssignmentSchema = z.object({
 export type CreateSubjectInput = z.infer<typeof createSubjectSchema>;
 export type UpdateSubjectInput = z.infer<typeof updateSubjectSchema>;
 export type AssignClassLevelInput = z.infer<typeof assignClassLevelSchema>;
+export type SubjectQuery = z.infer<typeof subjectQuerySchema>;
 export type UpdateSubjectAssignmentInput = z.infer<
   typeof updateSubjectAssignmentSchema
 >;

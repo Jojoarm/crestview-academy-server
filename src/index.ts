@@ -5,6 +5,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './config/better.auth.js';
 import { errorHandler, notFound } from './middlewares/error-handler.js';
 import adminRouter from './modules/admin/index.js';
+import authRouter from './modules/auth/index.js';
 import { env } from './utils/env.js';
 import logger from './utils/logger.js';
 
@@ -27,6 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Admin routes
 app.use('/api/admin', adminRouter);
+app.use('/api/profile', authRouter);
 
 // Health check
 app.get('/health', (_, res) => {

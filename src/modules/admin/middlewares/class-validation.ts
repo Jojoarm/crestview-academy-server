@@ -12,16 +12,11 @@ export const createClassLevelSchema = z.object({
     .min(1, 'Class name cannot be empty')
     .trim(),
   section: sectionEnum,
-  order: z
-    .number('Order is required')
-    .int('Order must be a whole number')
-    .min(1, 'Order must be at least 1'),
 });
 
 export const updateClassLevelSchema = z.object({
   name: z.string().min(1, 'Class name cannot be empty').trim().optional(),
   section: sectionEnum.optional(),
-  order: z.number().int('Order must be a whole number').min(1).optional(),
   isActive: z.boolean().optional(),
 });
 
