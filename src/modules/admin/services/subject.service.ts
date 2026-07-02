@@ -119,7 +119,7 @@ export const subjectService = {
           : null,
         data.code
           ? prisma.subject.findFirst({
-              where: { code: data.code, Not: { id } },
+              where: { code: data.code, NOT: { id } },
             })
           : null,
       ]);
