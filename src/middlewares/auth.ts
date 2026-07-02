@@ -8,6 +8,7 @@ export const requireAuth = async (
   next: NextFunction,
 ) => {
   try {
+    console.log('Cookie header:', req.headers.cookie);
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
@@ -18,6 +19,8 @@ export const requireAuth = async (
         message: 'Unauthorized - no valid session',
       });
     }
+
+    console.log(session);
 
     req.user = session.user;
     req.session = session.session;
