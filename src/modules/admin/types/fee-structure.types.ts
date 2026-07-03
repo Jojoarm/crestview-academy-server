@@ -1,30 +1,12 @@
-import type { Prisma } from '../../../generated/prisma/client.js';
+import { Prisma } from '../../../generated/prisma/client.js';
 
-export type FeeStructureWithItems = Prisma.FeeStructureGetPayload<{
+export type FeeTypeWithStructures = Prisma.FeeTypeGetPayload<{
   include: {
-    classLevel: true;
-    term: true;
-    session: true;
-    items: {
-      include: {
-        feeType: true;
-      };
-    };
-  };
-}>;
-
-export type FeeStructureWithSummary = FeeStructureWithItems & {
-  totalAmount: Prisma.Decimal;
-};
-
-export type FeeStructureWithDetails = Prisma.FeeStructureItemGetPayload<{
-  include: {
-    feeType: true;
-    feeStructure: {
+    feeStructures: {
       include: {
         classLevel: true;
-        term: true;
         session: true;
+        term: true;
       };
     };
   };

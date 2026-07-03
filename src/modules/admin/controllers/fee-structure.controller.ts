@@ -4,9 +4,8 @@ import {
   createFeeTypeSchema,
   updateFeeTypeSchema,
   createFeeStructureSchema,
+  updateFeeStructureSchema,
   feeStructureQuerySchema,
-  createFeeStructureItemSchema,
-  updateFeeStructureItemSchema,
 } from '../middlewares/fee-structure-validation.js';
 import { catchAsync } from '../../../utils/catch-async.js';
 import { sendError, sendSuccess } from '../../../utils/api-response.js';
@@ -28,6 +27,11 @@ export const listFeeTypes = catchAsync(async (req: Request, res: Response) => {
 
   const result = await feeService.listFeeTypes({ page, limit });
   return sendSuccess(res, result, 'Fee types retrieved successfully');
+});
+
+export const getFeeType = catchAsync(async (req: Request, res: Response) => {
+  const feeType = await feeService.getFeeTypeById(req.params.id as string);
+  return sendSuccess(res, feeType, 'Fee type retrieved successfully');
 });
 
 export const updateFeeType = catchAsync(async (req: Request, res: Response) => {
@@ -91,6 +95,20 @@ export const getFeeStructure = catchAsync(
   },
 );
 
+export const updateFeeStructure = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = updateFeeStructureSchema.safeParse(req.body);
+    if (!parsed.success)
+      return sendError(res, parsed.error.issues[0]?.message, 400);
+
+    const structure = await feeService.updateFeeStructure(
+      req.params.id as string,
+      parsed.data,
+    );
+    return sendSuccess(res, structure, 'Fee structure updated successfully');
+  },
+);
+
 export const deleteFeeStructure = catchAsync(
   async (req: Request, res: Response) => {
     await feeService.deleteFeeStructure(req.params.id as string);
@@ -98,43 +116,10 @@ export const deleteFeeStructure = catchAsync(
   },
 );
 
-// Fee Structure Item Controllers
-
-export const addFeeStructureItem = catchAsync(
+export const getApplicableFees = catchAsync(
   async (req: Request, res: Response) => {
-    const parsed = createFeeStructureItemSchema.safeParse(req.body);
-    if (!parsed.success)
-      return sendError(res, parsed.error.issues[0]?.message, 400);
-
-    const structure = await feeService.addFeeStructureItem(
-      req.params.id as string,
-      parsed.data,
-    );
-    return sendSuccess(res, structure, 'Fee item added successfully', 201);
-  },
-);
-
-export const updateFeeStructureItem = catchAsync(
-  async (req: Request, res: Response) => {
-    const parsed = updateFeeStructureItemSchema.safeParse(req.body);
-    if (!parsed.success)
-      return sendError(res, parsed.error.issues[0]?.message, 400);
-
-    const structure = await feeService.updateFeeStructureItem(
-      req.params.id as string,
-      req.params.itemId as string,
-      parsed.data,
-    );
-    return sendSuccess(res, structure, 'Fee item updated successfully');
-  },
-);
-
-export const removeFeeStructureItem = catchAsync(
-  async (req: Request, res: Response) => {
-    const structure = await feeService.removeFeeStructureItem(
-      req.params.id as string,
-      req.params.itemId as string,
-    );
-    return sendSuccess(res, structure, 'Fee item removed successfully');
+    const { classLevelId } = req.params;
+    const result = await feeService.getApplicableFees(classLevelId as string);
+    return sendSuccess(res, result, 'Applicable fees retrieved successfully');
   },
 );

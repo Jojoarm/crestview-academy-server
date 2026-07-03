@@ -2,15 +2,15 @@ import { Router } from 'express';
 import {
   createFeeType,
   listFeeTypes,
+  getFeeType,
   updateFeeType,
   deleteFeeType,
   createFeeStructure,
   listFeeStructures,
   getFeeStructure,
+  updateFeeStructure,
   deleteFeeStructure,
-  addFeeStructureItem,
-  updateFeeStructureItem,
-  removeFeeStructureItem,
+  getApplicableFees,
 } from '../controllers/fee-structure.controller.js';
 import { requireAdmin } from '../../../middlewares/require-admin.js';
 
@@ -23,6 +23,7 @@ feeStructureRouter.use(requireAdmin);
 // Fee Type Routes
 feeTypeRouter.post('/', createFeeType);
 feeTypeRouter.get('/', listFeeTypes);
+feeTypeRouter.get('/:id', getFeeType);
 feeTypeRouter.patch('/:id', updateFeeType);
 feeTypeRouter.delete('/:id', deleteFeeType);
 
@@ -30,11 +31,10 @@ feeTypeRouter.delete('/:id', deleteFeeType);
 feeStructureRouter.post('/', createFeeStructure);
 feeStructureRouter.get('/', listFeeStructures);
 feeStructureRouter.get('/:id', getFeeStructure);
+feeStructureRouter.patch('/:id', updateFeeStructure);
 feeStructureRouter.delete('/:id', deleteFeeStructure);
 
-// Fee Structure Item Routes
-feeStructureRouter.post('/:id/items', addFeeStructureItem);
-feeStructureRouter.patch('/:id/items/:itemId', updateFeeStructureItem);
-feeStructureRouter.delete('/:id/items/:itemId', removeFeeStructureItem);
+// Applicable fees for a class level (used by payment tracking)
+feeStructureRouter.get('/class/:classLevelId/applicable', getApplicableFees);
 
 export { feeTypeRouter, feeStructureRouter };

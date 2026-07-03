@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// Enums
+
+export const feeFrequencyEnum = z.enum(['OneTime', 'Annual', 'PerTerm'], {
+  error: 'Frequency must be OneTime, Annual, or PerTerm',
+});
+
+export const feeScopeEnum = z.enum(['SchoolWide', 'PerClass'], {
+  error: 'Scope must be SchoolWide or PerClass',
+});
+
 // Fee Type Schemas
 
 export const createFeeTypeSchema = z.object({
@@ -8,12 +18,16 @@ export const createFeeTypeSchema = z.object({
     .min(1, 'Fee type name cannot be empty')
     .trim(),
   description: z.string().trim().optional(),
+  frequency: feeFrequencyEnum,
+  scope: feeScopeEnum,
   isOptional: z.boolean().default(false),
 });
 
 export const updateFeeTypeSchema = z.object({
   name: z.string().min(1, 'Fee type name cannot be empty').trim().optional(),
   description: z.string().trim().optional(),
+  frequency: feeFrequencyEnum.optional(),
+  scope: feeScopeEnum.optional(),
   isOptional: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });
@@ -21,46 +35,40 @@ export const updateFeeTypeSchema = z.object({
 // Fee Structure Schemas
 
 export const createFeeStructureSchema = z.object({
-  classLevelId: z
-    .string('Class level ID is required')
-    .min(1, 'Class level ID cannot be empty'),
-  termId: z.string('Term ID is required').min(1, 'Term ID cannot be empty'),
+  feeTypeId: z.string('Fee type ID is required').min(1),
+  amount: z
+    .number('Amount is required')
+    .positive('Amount must be greater than 0')
+    .multipleOf(0.01, 'Amount cannot have more than 2 decimal places'),
+  classLevelId: z.string().min(1).optional(), // required when scope = PerClass
+  sessionId: z.string().min(1).optional(), // required when frequency != OneTime
+  termId: z.string().min(1).optional(), // required when frequency = PerTerm
+});
+
+export const updateFeeStructureSchema = z.object({
+  amount: z
+    .number('Amount is required')
+    .positive('Amount must be greater than 0')
+    .multipleOf(0.01, 'Amount cannot have more than 2 decimal places'),
 });
 
 export const feeStructureQuerySchema = z.object({
+  feeTypeId: z.string().optional(),
   classLevelId: z.string().optional(),
-  termId: z.string().optional(),
   sessionId: z.string().optional(),
+  termId: z.string().optional(),
+  frequency: feeFrequencyEnum.optional(),
+  scope: feeScopeEnum.optional(),
+  isActive: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional(),
 });
 
-// Fee Structure Item Schemas
-
-export const createFeeStructureItemSchema = z.object({
-  feeTypeId: z
-    .string('Fee type ID is required')
-    .min(1, 'Fee type ID cannot be empty'),
-  amount: z
-    .number('Amount is required')
-    .positive('Amount must be greater than 0')
-    .multipleOf(0.01, 'Amount cannot have more than 2 decimal places'),
-});
-
-export const updateFeeStructureItemSchema = z.object({
-  amount: z
-    .number('Amount is required')
-    .positive('Amount must be greater than 0')
-    .multipleOf(0.01, 'Amount cannot have more than 2 decimal places'),
-});
-
-// Types
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CreateFeeTypeInput = z.infer<typeof createFeeTypeSchema>;
 export type UpdateFeeTypeInput = z.infer<typeof updateFeeTypeSchema>;
 export type CreateFeeStructureInput = z.infer<typeof createFeeStructureSchema>;
+export type UpdateFeeStructureInput = z.infer<typeof updateFeeStructureSchema>;
 export type FeeStructureQuery = z.infer<typeof feeStructureQuerySchema>;
-export type CreateFeeStructureItemInput = z.infer<
-  typeof createFeeStructureItemSchema
->;
-export type UpdateFeeStructureItemInput = z.infer<
-  typeof updateFeeStructureItemSchema
->;

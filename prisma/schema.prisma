@@ -273,54 +273,56 @@ model SubjectTeacher {
   @@map("subject_teachers")
 }
 
-model FeeType {
-  id          String   @id @default(cuid())
-  name        String   @unique // e.g. "Tuition", "Bus", "Uniform"
-  description String?
-  isOptional  Boolean  @default(false) // optional = only charged to specific students
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum FeeFrequency {
+  OneTime  // paid once on admission e.g. Registration, Acceptance
+  Annual   // paid once per session e.g. PTA Levy, Development Levy
+  PerTerm  // paid each term e.g. Tuition, ICT Fee, Exam Fee
+}
 
-  feeStructureItems FeeStructureItem[]
+enum FeeScope {
+  SchoolWide // same amount for all students regardless of class
+  PerClass   // amount varies by class level
+}
+
+model FeeType {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  frequency   FeeFrequency
+  scope       FeeScope
+  isOptional  Boolean      @default(false)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  feeStructures FeeStructure[]
 
   @@map("fee_types")
 }
 
 model FeeStructure {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  classLevelId String
-  classLevel   ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
-
-  termId String
-  term   Term   @relation(fields: [termId], references: [id], onDelete: Cascade)
-
-  sessionId String
-  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  items FeeStructureItem[]
-
-  @@unique([classLevelId, termId, sessionId])
-  @@map("fee_structures")
-}
-
-model FeeStructureItem {
-  id        String   @id @default(cuid())
   amount    Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  feeStructureId String
-  feeStructure   FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
 
   feeTypeId String
   feeType   FeeType @relation(fields: [feeTypeId], references: [id], onDelete: Cascade)
 
-  @@unique([feeStructureId, feeTypeId])
-  @@map("fee_structure_items")
+  // null when scope = SchoolWide
+  classLevelId String?
+  classLevel   ClassLevel? @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+
+  // null when frequency = OneTime
+  sessionId String?
+  session   AcademicSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // only set when frequency = PerTerm
+  termId String?
+  term   Term?   @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@map("fee_structures")
 }
 
 enum DayOfWeek {

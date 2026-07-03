@@ -1,5 +1,3 @@
-// Helpers
-
 import prisma from '../../../config/prisma.js';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { createError } from '../../../middlewares/error-handler.js';
@@ -8,38 +6,26 @@ import type {
   PaginationQuery,
 } from '../../../types/common.types.js';
 import type {
-  CreateFeeStructureInput,
-  CreateFeeStructureItemInput,
   CreateFeeTypeInput,
-  FeeStructureQuery,
-  UpdateFeeStructureItemInput,
   UpdateFeeTypeInput,
+  CreateFeeStructureInput,
+  UpdateFeeStructureInput,
+  FeeStructureQuery,
 } from '../middlewares/fee-structure-validation.js';
-import type { FeeStructureWithSummary } from '../types/fee-structure.types.js';
+import type { FeeTypeWithStructures } from '../types/fee-structure.types.js';
+
+// Helpers
 
 const feeStructureInclude = {
+  feeType: true,
   classLevel: true,
-  term: true,
   session: true,
-  items: {
-    include: { feeType: true },
-    orderBy: { feeType: { name: 'asc' as const } },
-  },
+  term: true,
 };
 
 type FeeStructureQueryResult = Prisma.FeeStructureGetPayload<{
   include: typeof feeStructureInclude;
 }>;
-
-const withTotalAmount = (
-  structure: FeeStructureQueryResult,
-): FeeStructureWithSummary => ({
-  ...structure,
-  totalAmount: structure.items.reduce(
-    (sum, item) => sum.add(item.amount),
-    new Prisma.Decimal(0),
-  ),
-});
 
 const getActiveSession = async () => {
   const session = await prisma.academicSession.findFirst({
@@ -53,14 +39,30 @@ const getActiveSession = async () => {
   return session;
 };
 
-// Fee Type Service
+// Uniqueness check (enforced in service since constraints are conditional)
+
+const checkDuplicate = async (
+  data: CreateFeeStructureInput,
+  feeType: { frequency: string; scope: string },
+  excludeId?: string,
+) => {
+  const where: Record<string, any> = { feeTypeId: data.feeTypeId };
+
+  if (feeType.scope === 'PerClass') where.classLevelId = data.classLevelId;
+  if (feeType.frequency !== 'OneTime') where.sessionId = data.sessionId;
+  if (feeType.frequency === 'PerTerm') where.termId = data.termId;
+  if (excludeId) where.NOT = { id: excludeId };
+
+  return prisma.feeStructure.findFirst({ where });
+};
+
+//  Fee Type Service
 
 export const feeService = {
   async createFeeType(data: CreateFeeTypeInput) {
     const existing = await prisma.feeType.findUnique({
       where: { name: data.name },
     });
-
     if (existing)
       throw createError('A fee type with this name already exists', 409);
 
@@ -68,12 +70,17 @@ export const feeService = {
       data: {
         name: data.name,
         description: data.description ?? null,
+        frequency: data.frequency,
+        scope: data.scope,
         isOptional: data.isOptional,
       },
     });
   },
 
-  async listFeeTypes({ page = 1, limit = 20 }: PaginationQuery) {
+  async listFeeTypes({
+    page = 1,
+    limit = 20,
+  }: PaginationQuery): Promise<PaginatedResponse<FeeTypeWithStructures>> {
     const skip = (page - 1) * limit;
 
     const [feeTypes, total] = await prisma.$transaction([
@@ -81,8 +88,12 @@ export const feeService = {
         skip,
         take: limit,
         orderBy: { name: 'asc' },
+        include: {
+          feeStructures: {
+            include: { classLevel: true, session: true, term: true },
+          },
+        },
       }),
-
       prisma.feeType.count(),
     ]);
 
@@ -90,6 +101,19 @@ export const feeService = {
       data: feeTypes,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  },
+
+  async getFeeTypeById(id: string): Promise<FeeTypeWithStructures> {
+    const feeType = await prisma.feeType.findUnique({
+      where: { id },
+      include: {
+        feeStructures: {
+          include: { classLevel: true, session: true, term: true },
+        },
+      },
+    });
+    if (!feeType) throw createError('Fee type not found', 404);
+    return feeType;
   },
 
   async updateFeeType(id: string, data: UpdateFeeTypeInput) {
@@ -100,9 +124,35 @@ export const feeService = {
       const conflict = await prisma.feeType.findFirst({
         where: { name: data.name, NOT: { id } },
       });
-
       if (conflict)
         throw createError('A fee type with this name already exists', 409);
+    }
+
+    const newFrequency = data.frequency ?? feeType.frequency;
+    const newScope = data.scope ?? feeType.scope;
+
+    const frequencyChanged =
+      data.frequency && data.frequency !== feeType.frequency;
+    const scopeChanged = data.scope && data.scope !== feeType.scope;
+
+    // If frequency or scope changed, clean up existing structures
+    // that have fields which no longer make sense
+    if (frequencyChanged || scopeChanged) {
+      const nullifyData: Record<string, null> = {};
+
+      if (newScope === 'SchoolWide') nullifyData.classLevelId = null;
+      if (newFrequency === 'OneTime') {
+        nullifyData.sessionId = null;
+        nullifyData.termId = null;
+      }
+      if (newFrequency === 'Annual') nullifyData.termId = null;
+
+      if (Object.keys(nullifyData).length > 0) {
+        await prisma.feeStructure.updateMany({
+          where: { feeTypeId: id },
+          data: nullifyData,
+        });
+      }
     }
 
     return prisma.feeType.update({
@@ -112,6 +162,8 @@ export const feeService = {
         ...(data.description !== undefined && {
           description: data.description ?? null,
         }),
+        ...(data.frequency && { frequency: data.frequency }),
+        ...(data.scope && { scope: data.scope }),
         ...(data.isOptional !== undefined && { isOptional: data.isOptional }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
@@ -122,13 +174,12 @@ export const feeService = {
     const feeType = await prisma.feeType.findUnique({ where: { id } });
     if (!feeType) throw createError('Fee type not found', 404);
 
-    const usageCount = await prisma.feeStructureItem.count({
+    const usageCount = await prisma.feeStructure.count({
       where: { feeTypeId: id },
     });
-
     if (usageCount > 0) {
       throw createError(
-        'Cannot delete a fee type that is used in one or more fee structures. Remove it from all structures first',
+        'Cannot delete a fee type that has fee structures. Remove all structures first.',
         400,
       );
     }
@@ -136,68 +187,99 @@ export const feeService = {
     await prisma.feeType.delete({ where: { id } });
   },
 
-  //   Fee Structure Service
+  // Fee Structure Service
 
   async createFeeStructure(
     data: CreateFeeStructureInput,
-  ): Promise<FeeStructureWithSummary> {
-    const session = await getActiveSession();
-
-    const [classLevel, term] = await Promise.all([
-      prisma.classLevel.findUnique({ where: { id: data.classLevelId } }),
-      prisma.term.findUnique({ where: { id: data.termId } }),
-    ]);
-
-    if (!classLevel) throw createError('Class level not found', 404);
-    if (!term) throw createError('Term not found', 404);
-
-    // Ensure term belongs to active session
-    if (term.sessionId !== session.id) {
+  ): Promise<FeeStructureQueryResult> {
+    const feeType = await prisma.feeType.findUnique({
+      where: { id: data.feeTypeId },
+    });
+    if (!feeType) throw createError('Fee type not found', 404);
+    if (!feeType.isActive)
       throw createError(
-        'The selected term does not belong to the active session',
+        'Cannot create a structure for an inactive fee type',
         400,
       );
+
+    // Validate required fields based on frequency + scope
+
+    if (feeType.scope === 'PerClass') {
+      if (!data.classLevelId)
+        throw createError(
+          'Class level is required for PerClass fee types',
+          400,
+        );
+      const classLevel = await prisma.classLevel.findUnique({
+        where: { id: data.classLevelId },
+      });
+      if (!classLevel) throw createError('Class level not found', 404);
     }
 
-    const existing = await prisma.feeStructure.findUnique({
-      where: {
-        classLevelId_termId_sessionId: {
-          classLevelId: data.classLevelId,
-          termId: data.termId,
-          sessionId: session.id,
-        },
-      },
-    });
+    if (feeType.frequency !== 'OneTime') {
+      if (!data.sessionId)
+        throw createError(
+          'Session is required for Annual and PerTerm fee types',
+          400,
+        );
+      const session = await prisma.academicSession.findUnique({
+        where: { id: data.sessionId },
+      });
+      if (!session) throw createError('Session not found', 404);
+    }
 
-    if (existing) {
+    if (feeType.frequency === 'PerTerm') {
+      if (!data.termId)
+        throw createError('Term is required for PerTerm fee types', 400);
+      const term = await prisma.term.findUnique({ where: { id: data.termId } });
+      if (!term) throw createError('Term not found', 404);
+
+      // Ensure term belongs to the specified session
+      if (data.sessionId && term.sessionId !== data.sessionId) {
+        throw createError(
+          'The selected term does not belong to the specified session',
+          400,
+        );
+      }
+    }
+
+    // Duplicate check
+    const duplicate = await checkDuplicate(data, feeType);
+    if (duplicate) {
       throw createError(
-        'A fee structure already exists for this class and term in the current session',
+        'A fee structure already exists for this fee type with the same class/session/term combination',
         409,
       );
     }
 
-    const structure = await prisma.feeStructure.create({
+    return prisma.feeStructure.create({
       data: {
-        classLevelId: data.classLevelId,
-        termId: data.termId,
-        sessionId: session.id,
+        feeTypeId: data.feeTypeId,
+        amount: new Prisma.Decimal(data.amount),
+        classLevelId:
+          feeType.scope === 'PerClass' ? (data.classLevelId ?? null) : null,
+        sessionId:
+          feeType.frequency !== 'OneTime' ? (data.sessionId ?? null) : null,
+        termId: feeType.frequency === 'PerTerm' ? (data.termId ?? null) : null,
       },
       include: feeStructureInclude,
     });
-
-    return withTotalAmount(structure);
   },
 
   async listFeeStructures(
     { page = 1, limit = 20 }: PaginationQuery,
     query: FeeStructureQuery,
-  ): Promise<PaginatedResponse<FeeStructureWithSummary>> {
+  ): Promise<PaginatedResponse<FeeStructureQueryResult>> {
     const skip = (page - 1) * limit;
 
     const where = {
+      ...(query.feeTypeId && { feeTypeId: query.feeTypeId }),
       ...(query.classLevelId && { classLevelId: query.classLevelId }),
-      ...(query.termId && { termId: query.termId }),
       ...(query.sessionId && { sessionId: query.sessionId }),
+      ...(query.termId && { termId: query.termId }),
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
+      ...(query.frequency && { feeType: { frequency: query.frequency } }),
+      ...(query.scope && { feeType: { scope: query.scope } }),
     };
 
     const [structures, total] = await prisma.$transaction([
@@ -212,23 +294,35 @@ export const feeService = {
     ]);
 
     return {
-      data: structures.map(withTotalAmount),
+      data: structures,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   },
 
-  async getFeeStructureById(id: string): Promise<FeeStructureWithSummary> {
+  async getFeeStructureById(id: string): Promise<FeeStructureQueryResult> {
     const structure = await prisma.feeStructure.findUnique({
       where: { id },
       include: feeStructureInclude,
     });
     if (!structure) throw createError('Fee structure not found', 404);
-    return withTotalAmount(structure);
+    return structure;
   },
 
-  async deleteFeeStructure(id: string) {
-    const structure = await prisma.feeStructure.findUnique({ where: { id } });
-    if (!structure) throw createError('Fee structure not found', 404);
+  async updateFeeStructure(
+    id: string,
+    data: UpdateFeeStructureInput,
+  ): Promise<FeeStructureQueryResult> {
+    await feeService.getFeeStructureById(id);
+
+    return prisma.feeStructure.update({
+      where: { id },
+      data: { amount: new Prisma.Decimal(data.amount) },
+      include: feeStructureInclude,
+    });
+  },
+
+  async deleteFeeStructure(id: string): Promise<void> {
+    await feeService.getFeeStructureById(id);
 
     // Guard: no payments linked (add when payment module is built)
     // const paymentCount = await prisma.payment.count({ where: { feeStructureId: id } });
@@ -237,81 +331,55 @@ export const feeService = {
     await prisma.feeStructure.delete({ where: { id } });
   },
 
-  //   Fee structure Item Services
-  async addFeeStructureItem(
-    feeStructureId: string,
-    data: CreateFeeStructureItemInput,
-  ): Promise<FeeStructureWithSummary> {
-    const structure = await prisma.feeStructure.findUnique({
-      where: { id: feeStructureId },
-    });
-    if (!structure) throw createError('Fee structure not found', 404);
+  // Convenience: get all fees applicable to a student
+  // Used by payment tracking to know what a student in a given class/term owes
 
-    const feeType = await prisma.feeType.findUnique({
-      where: { id: data.feeTypeId },
-    });
+  async getApplicableFees(classLevelId: string): Promise<{
+    oneTime: FeeStructureQueryResult[];
+    annual: FeeStructureQueryResult[];
+    perTerm: FeeStructureQueryResult[];
+  }> {
+    const session = await getActiveSession();
 
-    if (!feeType) throw createError('Fee type not found', 404);
-    if (!feeType.isActive)
-      throw createError('Cannot add an inactive fee type', 400);
-
-    const existing = await prisma.feeStructureItem.findUnique({
-      where: {
-        feeStructureId_feeTypeId: { feeStructureId, feeTypeId: data.feeTypeId },
-      },
+    const activeTerm = await prisma.term.findFirst({
+      where: { sessionId: session.id, isActive: true },
     });
 
-    if (existing) {
-      throw createError(
-        'This fee type is already added to this fee structure',
-        409,
-      );
-    }
+    const [oneTime, annual, perTerm] = await Promise.all([
+      prisma.feeStructure.findMany({
+        where: {
+          isActive: true,
+          feeType: { frequency: 'OneTime', isActive: true },
+          OR: [{ classLevelId: null }, { classLevelId }],
+        },
+        include: feeStructureInclude,
+      }),
+      prisma.feeStructure.findMany({
+        where: {
+          isActive: true,
+          sessionId: session.id,
+          feeType: { frequency: 'Annual', isActive: true },
+          OR: [{ classLevelId: null }, { classLevelId }],
+        },
+        include: feeStructureInclude,
+      }),
+      activeTerm
+        ? prisma.feeStructure.findMany({
+            where: {
+              isActive: true,
+              sessionId: session.id,
+              termId: activeTerm.id,
+              feeType: { frequency: 'PerTerm', isActive: true },
+              OR: [{ classLevelId: null }, { classLevelId }],
+            },
+            include: feeStructureInclude,
+          })
+        : prisma.feeStructure.findMany({
+            where: { id: 'none' },
+            include: feeStructureInclude,
+          }),
+    ]);
 
-    await prisma.feeStructureItem.create({
-      data: {
-        feeStructureId,
-        feeTypeId: data.feeTypeId,
-        amount: new Prisma.Decimal(data.amount),
-      },
-    });
-
-    // Return the full updated structure
-    return feeService.getFeeStructureById(feeStructureId);
-  },
-
-  async updateFeeStructureItem(
-    feeStructureId: string,
-    itemId: string,
-    data: UpdateFeeStructureItemInput,
-  ): Promise<FeeStructureWithSummary> {
-    const item = await prisma.feeStructureItem.findFirst({
-      where: { id: itemId, feeStructureId },
-    });
-
-    if (!item) throw createError('Fee structure item not found', 404);
-
-    await prisma.feeStructureItem.update({
-      where: { id: itemId },
-      data: { amount: new Prisma.Decimal(data.amount) },
-    });
-
-    return feeService.getFeeStructureById(feeStructureId);
-  },
-
-  async removeFeeStructureItem(
-    feeStructureId: string,
-    itemId: string,
-  ): Promise<FeeStructureWithSummary> {
-    const item = await prisma.feeStructureItem.findFirst({
-      where: { id: itemId, feeStructureId },
-    });
-    if (!item) throw createError('Fee structure item not found', 404);
-
-    // Guard: no payments linked to this item (add when payment module is built)
-
-    await prisma.feeStructureItem.delete({ where: { id: itemId } });
-
-    return feeService.getFeeStructureById(feeStructureId);
+    return { oneTime, annual, perTerm };
   },
 };
