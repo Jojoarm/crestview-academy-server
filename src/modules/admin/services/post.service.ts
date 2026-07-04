@@ -51,6 +51,12 @@ export const postService = {
     const skip = (page - 1) * limit;
 
     const where = {
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' as const } },
+          { content: { contains: query.search, mode: 'insensitive' as const } },
+        ],
+      }),
       ...(query.type && { type: query.type }),
       ...(query.status && { status: query.status }),
       ...(query.audience && { audience: query.audience }),

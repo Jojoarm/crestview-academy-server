@@ -103,6 +103,7 @@ export const updatePostSchema = z
   );
 
 export const postQuerySchema = z.object({
+  search: z.string().optional(),
   type: postTypeEnum.optional(),
   status: postStatusEnum.optional(),
   audience: postAudienceEnum.optional(),
