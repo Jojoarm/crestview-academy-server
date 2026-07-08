@@ -27,6 +27,24 @@ const userSelect = {
   forcePasswordChange: true,
   createdAt: true,
   updatedAt: true,
+  student: { select: { id: true, admissionNumber: true, isActive: true } },
+  teacher: { select: { id: true, employeeId: true, isActive: true } },
+  parent: { select: { id: true, isActive: true } },
+  admin: { select: { id: true, isActive: true } },
+};
+
+const generateAdmissionNumber = async (): Promise<string> => {
+  const year = new Date().getFullYear();
+  const count = await prisma.student.count();
+  const padded = String(count + 1).padStart(4, '0');
+  return `CRV/${year}/${padded}`; // e.g. CRV/2025/0001
+};
+
+const generateEmployeeId = async (): Promise<string> => {
+  const year = new Date().getFullYear();
+  const count = await prisma.teacher.count();
+  const padded = String(count + 1).padStart(3, '0');
+  return `CRV/TCH/${year}/${padded}`; // e.g. CRV/TCH/2025/001
 };
 
 // Get all users (optionally filter by role, search by name/email, and paginate)
@@ -85,21 +103,20 @@ export const getAllUsers = async (
 export const createUser = async (
   input: CreateUserInput,
   headers: IncomingHttpHeaders,
-): Promise<ManagedUser> => {
-  // Better auth creates the user + hashes the password
+) => {
+  // Better Auth creates the user + hashes the password
   const result = await auth.api.createUser({
     body: {
       email: input.email,
       password: input.temporaryPassword,
       name: input.name,
-      // better auth uses two roles: user or admin
       role: convertRole(input.userRole),
     },
     headers: fromNodeHeaders(headers),
   });
 
-  // Flag for forced password change on first login
-  const user = await prisma.user.update({
+  // Update user with app role + force password change
+  await prisma.user.update({
     where: { id: result.user.id },
     data: {
       userRole: input.userRole,
@@ -107,14 +124,51 @@ export const createUser = async (
     },
   });
 
-  // Send invite email with temporary credentials
+  // Auto-create role-specific record
+  switch (input.userRole) {
+    case 'student': {
+      const admissionNumber = await generateAdmissionNumber();
+      await prisma.student.create({
+        data: {
+          userId: result.user.id,
+          admissionNumber,
+        },
+      });
+      break;
+    }
+    case 'teacher': {
+      const employeeId = await generateEmployeeId();
+      await prisma.teacher.create({
+        data: {
+          userId: result.user.id,
+          employeeId,
+        },
+      });
+      break;
+    }
+    case 'parent': {
+      await prisma.parent.create({
+        data: { userId: result.user.id },
+      });
+      break;
+    }
+    case 'admin':
+    case 'super_admin': {
+      await prisma.admin.create({
+        data: { userId: result.user.id },
+      });
+      break;
+    }
+  }
+
+  // Send invite email
   await sendInviteEmail({
     to: input.email,
     name: input.name,
     temporaryPassword: input.temporaryPassword,
   });
 
-  return user;
+  return result.user;
 };
 
 // Update user name or role

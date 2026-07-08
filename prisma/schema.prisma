@@ -18,6 +18,23 @@ enum UserRole {
   student
 }
 
+enum Gender {
+  Male
+  Female
+}
+
+enum EmploymentType {
+  FullTime
+  PartTime
+  Contract
+}
+
+enum Relationship {
+  Father
+  Mother
+  Guardian
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -41,11 +58,11 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  classArmTeachers ClassArmTeacher[] @relation("ClassArmTeacher")
-  subjectTeachers SubjectTeacher[] @relation("SubjectTeacher")
-  posts Post[] @relation("PostAuthor")
-
   @@map("users") 
+  admins Admin[]
+  parents Parent[]
+  teachers Teacher[]
+  students Student[]
 }
 
 model Session {
@@ -97,7 +114,124 @@ model Verification {
   @@map("verifications")
 }
 
+model Student {
+  id                String    @id @default(cuid())
+  admissionNumber   String    @unique
+  dateOfBirth       DateTime?
+  gender            Gender?
+  address           String?
+  photoUrl          String?
+  bloodGroup        String?
+  genotype          String?
+  medicalConditions String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parents     StudentParent[]
+  enrollments StudentEnrollment[]
+
+  @@map("students")
+}
+
+model StudentParent {
+  id           String       @id @default(cuid())
+  relationship Relationship
+  isPrimary    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  parentId String
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, parentId])
+  @@map("student_parents")
+}
+
+model StudentEnrollment {
+  id        String   @id @default(cuid())
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sessionId]) // one enrollment per student per session
+  @@map("student_enrollments")
+}
+
+model Teacher {
+  id               String          @id @default(cuid())
+  employeeId       String          @unique
+  dateOfBirth      DateTime?
+  gender           Gender?
+  address          String?
+  photoUrl         String?
+  phone            String?
+  qualification    String?
+  designation      String?
+  employmentType   EmploymentType?
+  dateOfEmployment DateTime?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  classArmTeachers ClassArmTeacher[]
+  subjectTeachers  SubjectTeacher[]
+
+  @@map("teachers")
+}
+
+model Parent {
+  id           String       @id @default(cuid())
+  phone        String?
+  address      String?
+  photoUrl     String?
+  occupation   String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  students StudentParent[]
+
+  @@map("parents")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  phone     String?
+  address   String?
+  photoUrl  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  posts Post[]
+
+  @@map("admins")
+}
 
 enum TermName {
   First
@@ -123,6 +257,7 @@ model AcademicSession {
   timetableEntries TimetableEntry[]
 
   @@map("academic_sessions")
+  studentEnrollments StudentEnrollment[]
 }
 
 model Term {
@@ -197,6 +332,7 @@ model ClassArm {
 
   @@unique([classLevelId, armId]) // an arm can only be assigned once per class
   @@map("class_arms")
+  studentEnrollments StudentEnrollment[]
 }
 
 model Subject {
@@ -242,12 +378,12 @@ model ClassArmTeacher {
   classArm   ClassArm @relation(fields: [classArmId], references: [id], onDelete: Cascade)
 
   teacherId String
-  teacher   User   @relation("ClassArmTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   sessionId String
   session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@unique([classArmId, teacherId, sessionId]) // same teacher can't be assigned twice to the same arm in the same session, but multiple different teachers can.
+  @@unique([classArmId, teacherId, sessionId])
   @@map("class_arm_teachers")
 }
 
@@ -264,12 +400,12 @@ model SubjectTeacher {
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   teacherId String
-  teacher   User   @relation("SubjectTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   sessionId String
   session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@unique([classArmId, subjectId, teacherId, sessionId]) // same teacher can't be assigned twice to the same subject in the same class, in the same session, but multiple different teachers can.
+  @@unique([classArmId, subjectId, teacherId, sessionId])
   @@map("subject_teachers")
 }
 
@@ -392,24 +528,21 @@ enum PostStatus {
 }
 
 model Post {
-  id              String       @id @default(cuid())
-  title           String
-  content         String
-  type            PostType
-  audience        PostAudience @default(Everyone)
-  status          PostStatus   @default(Draft)
-  bannerImageUrl  String?
-
-  // Only relevant when type = Event
-  eventStartDate  DateTime?
-  eventEndDate    DateTime?
-
-  publishedAt     DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  title          String
+  content        String
+  type           PostType
+  audience       PostAudience @default(Everyone)
+  status         PostStatus   @default(Draft)
+  bannerImageUrl String?
+  eventStartDate DateTime?
+  eventEndDate   DateTime?
+  publishedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   authorId String
-  author   User   @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  author   Admin  @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("posts")
 }

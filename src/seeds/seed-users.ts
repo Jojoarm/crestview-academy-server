@@ -112,6 +112,20 @@ const testUsers = [
   },
 ] as const;
 
+const generateAdmissionNumber = async (): Promise<string> => {
+  const year = new Date().getFullYear();
+  const count = await prisma.student.count();
+  const padded = String(count + 1).padStart(4, '0');
+  return `CRV/${year}/${padded}`;
+};
+
+const generateEmployeeId = async (): Promise<string> => {
+  const year = new Date().getFullYear();
+  const count = await prisma.teacher.count();
+  const padded = String(count + 1).padStart(3, '0');
+  return `CRV/TCH/${year}/${padded}`;
+};
+
 async function seedTestUsers() {
   logger.info('Seeding test users...');
 
@@ -148,6 +162,30 @@ async function seedTestUsers() {
         },
       });
 
+      // Create role-specific record
+      switch (userData.userRole) {
+        case 'teacher': {
+          const employeeId = await generateEmployeeId();
+          await prisma.teacher.create({
+            data: { userId: user.id, employeeId },
+          });
+          break;
+        }
+        case 'parent': {
+          await prisma.parent.create({
+            data: { userId: user.id },
+          });
+          break;
+        }
+        case 'student': {
+          const admissionNumber = await generateAdmissionNumber();
+          await prisma.student.create({
+            data: { userId: user.id, admissionNumber },
+          });
+          break;
+        }
+      }
+
       logger.info(
         `Created ${userData.userRole}: ${userData.name} (${userData.email})`,
       );
@@ -159,7 +197,7 @@ async function seedTestUsers() {
 
   logger.info('─────────────────────────────────────────');
   logger.info(`Done. Created: ${created}, Skipped: ${skipped}`);
-  logger.info(`All test users have password: ${TEST_PASSWORD}`);
+  logger.info(`All test users password: ${TEST_PASSWORD}`);
   logger.info('─────────────────────────────────────────');
 }
 

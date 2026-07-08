@@ -15,6 +15,12 @@ import {
   classArmTimetableRouter,
 } from './routes/time-table.routes.js';
 import postRouter from './routes/post.routes.js';
+import teacherRouter from './routes/teacher.routes.js';
+import studentRouter from './routes/student.routes.js';
+import parentRouter from './routes/parent.routes.js';
+import adminProfileRouter from './routes/admin-profile.routes.js';
+import { requireAdmin } from '../../middlewares/require-admin.js';
+import { getStudentsByClassArm } from './controllers/student.controller.js';
 
 const router = Router();
 
@@ -29,5 +35,18 @@ router.use('/fee-types', feeTypeRouter);
 router.use('/fee-structures', feeStructureRouter);
 router.use('/period-slots', periodSlotRouter);
 router.use('/posts', postRouter);
+
+// Role management routes
+router.use('/teachers', teacherRouter);
+router.use('/students', studentRouter);
+router.use('/parents', parentRouter);
+router.use('/admins', adminProfileRouter);
+
+// ─── Class arm students (convenience endpoint)
+router.get(
+  '/class-arms/:classArmId/students',
+  requireAdmin,
+  getStudentsByClassArm,
+);
 
 export default router;

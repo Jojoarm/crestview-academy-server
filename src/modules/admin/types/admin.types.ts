@@ -1,4 +1,10 @@
-import type { UserRole } from '../../../generated/prisma/enums.js';
+import type {
+  Admin,
+  Parent,
+  Student,
+  Teacher,
+  UserRole,
+} from '../../../generated/prisma/client.js';
 
 export type CreateUserInput = {
   email: string;
@@ -23,4 +29,9 @@ export type ManagedUser = {
   forcePasswordChange: boolean | null;
   createdAt: Date;
   updatedAt: Date;
+  // role record — only one will be non-null depending on userRole
+  student: Pick<Student, 'id' | 'admissionNumber' | 'isActive'> | null;
+  teacher: Pick<Teacher, 'id' | 'employeeId' | 'isActive'> | null;
+  parent: Pick<Parent, 'id' | 'isActive'> | null;
+  admin: Pick<Admin, 'id' | 'isActive'> | null;
 };
