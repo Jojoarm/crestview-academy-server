@@ -1,4 +1,5 @@
 import prisma from '../../../config/prisma.js';
+import { getActiveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
 import type {
   AssignClassTeacherInput,
@@ -31,26 +32,10 @@ const subjectTeacherInclude = {
   session: true,
 };
 
-// Resolves active session - used across all assignments
-const getActiveSession = async () => {
-  const session = await prisma.academicSession.findFirst({
-    where: { isActive: true },
-  });
-  if (!session)
-    throw createError(
-      'No active session found. Set an active session first.',
-      400,
-    );
-  return session;
-};
-
 // Validates teacher exists and has teacher role
 const validateTeacher = async (teacherId: string) => {
-  const teacher = await prisma.user.findUnique({ where: { id: teacherId } });
+  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
   if (!teacher) throw createError('Teacher not found', 404);
-  if (teacher.userRole !== 'teacher') {
-    throw createError('The specified user is not a teacher', 400);
-  }
   return teacher;
 };
 
