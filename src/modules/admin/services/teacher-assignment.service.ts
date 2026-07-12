@@ -1,6 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import { getActiveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
+import { validateClassArm, validateTeacher } from '../lib/utils.js';
 import type {
   AssignClassTeacherInput,
   AssignSubjectTeacherInput,
@@ -13,7 +14,11 @@ import type {
 // Helpers
 const classArmTeacherInclude = {
   teacher: {
-    select: { id: true, name: true, email: true, userRole: true },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, userRole: true },
+      },
+    },
   },
   classArm: {
     include: { arm: true, classLevel: true },
@@ -23,30 +28,17 @@ const classArmTeacherInclude = {
 
 const subjectTeacherInclude = {
   teacher: {
-    select: { id: true, name: true, email: true, userRole: true },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, userRole: true },
+      },
+    },
   },
   subject: true,
   classArm: {
     include: { arm: true, classLevel: true },
   },
   session: true,
-};
-
-// Validates teacher exists and has teacher role
-const validateTeacher = async (teacherId: string) => {
-  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
-  if (!teacher) throw createError('Teacher not found', 404);
-  return teacher;
-};
-
-// Validates class arm exists
-const validateClassArm = async (classArmId: string) => {
-  const classArm = await prisma.classArm.findUnique({
-    where: { id: classArmId },
-    include: { arm: true, classLevel: true },
-  });
-  if (!classArm) throw createError('Class arm not found', 404);
-  return classArm;
 };
 
 // Teacher Assignment Service

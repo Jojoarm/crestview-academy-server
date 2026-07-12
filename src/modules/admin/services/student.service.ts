@@ -35,6 +35,16 @@ const studentInclude = {
       },
     },
   },
+  enrollments: {
+    where: { session: { isActive: true }, isActive: true },
+    include: {
+      classArm: {
+        include: { arm: true, classLevel: true },
+      },
+      session: true,
+    },
+    take: 1, // only current enrollment
+  },
 } as const;
 
 const enrollmentInclude = {
@@ -180,7 +190,7 @@ export const studentService = {
     ]);
   },
 
-  // ─── Enrollment
+  // Enrollment
   async enrollStudent(id: string, data: EnrollStudentInput) {
     const [student, session] = await Promise.all([
       prisma.student.findUnique({ where: { id } }),
@@ -308,7 +318,7 @@ export const studentService = {
     });
   },
 
-  // ─── Students by Class Arm
+  // Students by Class Arm
   async getStudentsByClassArm(
     classArmId: string,
     { page = 1, limit = 20 }: PaginationQuery,

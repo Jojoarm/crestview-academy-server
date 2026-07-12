@@ -11,6 +11,7 @@ import {
   updateFeeStructure,
   deleteFeeStructure,
   getApplicableFees,
+  getAllFeeStructures,
 } from '../controllers/fee-structure.controller.js';
 import { requireAdmin } from '../../../middlewares/require-admin.js';
 
@@ -30,6 +31,7 @@ feeTypeRouter.delete('/:id', deleteFeeType);
 // Fee Structure Routes
 feeStructureRouter.post('/', createFeeStructure);
 feeStructureRouter.get('/', listFeeStructures);
+feeStructureRouter.get('/all', getAllFeeStructures);
 feeStructureRouter.get('/:id', getFeeStructure);
 feeStructureRouter.patch('/:id', updateFeeStructure);
 feeStructureRouter.delete('/:id', deleteFeeStructure);

@@ -39,10 +39,15 @@ async function main() {
     },
   });
 
+  // Create Admin record
+  await prisma.admin.create({
+    data: { userId: user.id },
+  });
+
   logger.info('Super admin created successfully');
-  logger.info(`Email:    ${email}`);
-  logger.info(`User Role:     super_admin`);
-  logger.info(`Login at: ${process.env.FRONTEND_URL}/auth/login`);
+  logger.info(`Email:     ${email}`);
+  logger.info(`User Role: super_admin`);
+  logger.info(`Login at:  ${process.env.FRONTEND_URL}/auth/login`);
   logger.info('Remember to change your password after first login.');
 }
 

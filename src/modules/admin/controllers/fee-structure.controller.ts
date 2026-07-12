@@ -29,6 +29,17 @@ export const listFeeTypes = catchAsync(async (req: Request, res: Response) => {
   return sendSuccess(res, result, 'Fee types retrieved successfully');
 });
 
+export const getAllFeeStructures = catchAsync(
+  async (req: Request, res: Response) => {
+    const queryParsed = feeStructureQuerySchema.safeParse(req.query);
+    if (!queryParsed.success)
+      return sendError(res, queryParsed.error.issues[0]?.message, 400);
+
+    const result = await feeService.getAllFeeStructures(queryParsed.data);
+    return sendSuccess(res, result, 'Fee structures retrieved successfully');
+  },
+);
+
 export const getFeeType = catchAsync(async (req: Request, res: Response) => {
   const feeType = await feeService.getFeeTypeById(req.params.id as string);
   return sendSuccess(res, feeType, 'Fee type retrieved successfully');
@@ -72,7 +83,8 @@ export const createFeeStructure = catchAsync(
 export const listFeeStructures = catchAsync(
   async (req: Request, res: Response) => {
     const page = Number(req.query.page) || 1;
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    // const limit = Math.min(Number(req.query.limit) || 20, 200);
+    const limit = Math.min(Number(req.query.limit) || 400, 400);
 
     const queryParsed = feeStructureQuerySchema.safeParse(req.query);
     if (!queryParsed.success)

@@ -21,6 +21,7 @@ import parentRouter from './routes/parent.routes.js';
 import adminProfileRouter from './routes/admin-profile.routes.js';
 import { requireAdmin } from '../../middlewares/require-admin.js';
 import { getStudentsByClassArm } from './controllers/student.controller.js';
+import analyticsRouter from './routes/analytics.routes.js';
 
 const router = Router();
 
@@ -41,6 +42,7 @@ router.use('/teachers', teacherRouter);
 router.use('/students', studentRouter);
 router.use('/parents', parentRouter);
 router.use('/admins', adminProfileRouter);
+router.use('/analytics', analyticsRouter);
 
 // ─── Class arm students (convenience endpoint)
 router.get(

@@ -14,7 +14,11 @@ import type { PostWithAuthor } from '../types/post-types.js';
 // Helpers
 const postInclude = {
   author: {
-    select: { id: true, name: true, email: true, userRole: true },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, userRole: true },
+      },
+    },
   },
 };
 

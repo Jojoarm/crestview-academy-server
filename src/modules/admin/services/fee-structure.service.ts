@@ -79,7 +79,7 @@ export const feeService = {
 
   async listFeeTypes({
     page = 1,
-    limit = 20,
+    limit = 50,
   }: PaginationQuery): Promise<PaginatedResponse<FeeTypeWithStructures>> {
     const skip = (page - 1) * limit;
 
@@ -267,7 +267,7 @@ export const feeService = {
   },
 
   async listFeeStructures(
-    { page = 1, limit = 20 }: PaginationQuery,
+    { page = 1, limit = 400 }: PaginationQuery,
     query: FeeStructureQuery,
   ): Promise<PaginatedResponse<FeeStructureQueryResult>> {
     const skip = (page - 1) * limit;
@@ -297,6 +297,25 @@ export const feeService = {
       data: structures,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  },
+
+  async getAllFeeStructures(query: FeeStructureQuery) {
+    return prisma.feeStructure.findMany({
+      where: {
+        ...(query.feeTypeId && { feeTypeId: query.feeTypeId }),
+        ...(query.classLevelId && { classLevelId: query.classLevelId }),
+        ...(query.sessionId && { sessionId: query.sessionId }),
+        ...(query.termId && { termId: query.termId }),
+        ...(query.frequency && { feeType: { frequency: query.frequency } }),
+        ...(query.scope && { feeType: { scope: query.scope } }),
+        ...(query.isActive !== undefined && { isActive: query.isActive }),
+      },
+      orderBy: [
+        { feeType: { frequency: 'asc' } },
+        { feeType: { name: 'asc' } },
+      ],
+      include: feeStructureInclude,
+    });
   },
 
   async getFeeStructureById(id: string): Promise<FeeStructureQueryResult> {

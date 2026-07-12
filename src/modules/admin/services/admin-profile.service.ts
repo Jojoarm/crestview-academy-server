@@ -1,7 +1,14 @@
 import prisma from '../../../config/prisma.js';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { createError } from '../../../middlewares/error-handler.js';
-import type { UpdateAdminInput } from '../middlewares/admin-profile-validation.js';
+import type {
+  PaginatedResponse,
+  PaginationQuery,
+} from '../../../types/common.types.js';
+import type {
+  AdminQuery,
+  UpdateAdminInput,
+} from '../middlewares/admin-profile-validation.js';
 
 // Includes
 
@@ -23,6 +30,38 @@ type AdminWithUser = Prisma.AdminGetPayload<{ include: typeof adminInclude }>;
 // Admin Profile Service
 
 export const adminProfileService = {
+  async listAdmins(
+    { page = 1, limit = 20 }: PaginationQuery,
+    query: AdminQuery,
+  ): Promise<PaginatedResponse<AdminWithUser>> {
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.AdminWhereInput = {
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
+      ...(query.search && {
+        user: {
+          name: { contains: query.search, mode: 'insensitive' as const },
+        },
+      }),
+    };
+
+    const [admins, total] = await prisma.$transaction([
+      prisma.admin.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { user: { name: 'asc' } },
+        include: adminInclude,
+      }),
+      prisma.admin.count({ where }),
+    ]);
+
+    return {
+      data: admins,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  },
+
   async getAdminById(id: string): Promise<AdminWithUser> {
     const admin = await prisma.admin.findUnique({
       where: { id },

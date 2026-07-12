@@ -7,16 +7,20 @@ import {
 } from '../middlewares/post-validation.js';
 import { catchAsync } from '../../../utils/catch-async.js';
 import { sendError, sendSuccess } from '../../../utils/api-response.js';
+import prisma from '../../../config/prisma.js';
 
 export const createPost = catchAsync(async (req: Request, res: Response) => {
   const parsed = createPostSchema.safeParse(req.body);
   if (!parsed.success)
     return sendError(res, parsed.error.issues[0]?.message, 400);
 
-  // req.user is populated by your auth middleware
-  const authorId = req.user?.id as string;
+  // Look up the Admin record for the logged-in user
+  const admin = await prisma.admin.findUnique({
+    where: { userId: req.user!.id },
+  });
+  if (!admin) return sendError(res, 'Admin profile not found', 404);
 
-  const post = await postService.createPost(parsed.data, authorId);
+  const post = await postService.createPost(parsed.data, admin.id);
   return sendSuccess(res, post, 'Post created successfully', 201);
 });
 

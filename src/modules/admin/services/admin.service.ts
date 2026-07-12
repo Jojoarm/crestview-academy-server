@@ -15,36 +15,40 @@ import { sendInviteEmail } from '../../../utils/mailer.js';
 import { convertRole } from '../../../utils/convert-role.js';
 import type { UserRole } from '../../../generated/prisma/enums.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
-
-const userSelect = {
-  id: true,
-  name: true,
-  email: true,
-  emailVerified: true,
-  role: true,
-  userRole: true,
-  banned: true,
-  forcePasswordChange: true,
-  createdAt: true,
-  updatedAt: true,
-  student: { select: { id: true, admissionNumber: true, isActive: true } },
-  teacher: { select: { id: true, employeeId: true, isActive: true } },
-  parent: { select: { id: true, isActive: true } },
-  admin: { select: { id: true, isActive: true } },
-};
+import { userSelect } from '../lib/utils.js';
 
 const generateAdmissionNumber = async (): Promise<string> => {
   const year = new Date().getFullYear();
-  const count = await prisma.student.count();
-  const padded = String(count + 1).padStart(4, '0');
-  return `CRV/${year}/${padded}`; // e.g. CRV/2025/0001
+  const prefix = `CRV/${year}/`;
+
+  const last = await prisma.student.findFirst({
+    where: { admissionNumber: { startsWith: prefix } },
+    orderBy: { admissionNumber: 'desc' },
+  });
+
+  const lastNumber = last
+    ? parseInt(last.admissionNumber.replace(prefix, ''), 10)
+    : 0;
+
+  const padded = String(lastNumber + 1).padStart(4, '0');
+  return `${prefix}${padded}`;
 };
 
 const generateEmployeeId = async (): Promise<string> => {
   const year = new Date().getFullYear();
-  const count = await prisma.teacher.count();
-  const padded = String(count + 1).padStart(3, '0');
-  return `CRV/TCH/${year}/${padded}`; // e.g. CRV/TCH/2025/001
+  const prefix = `CRV/TCH/${year}/`;
+
+  const last = await prisma.teacher.findFirst({
+    where: { employeeId: { startsWith: prefix } },
+    orderBy: { employeeId: 'desc' },
+  });
+
+  const lastNumber = last
+    ? parseInt(last.employeeId.replace(prefix, ''), 10)
+    : 0;
+
+  const padded = String(lastNumber + 1).padStart(3, '0');
+  return `${prefix}${padded}`;
 };
 
 // Get all users (optionally filter by role, search by name/email, and paginate)
@@ -104,7 +108,7 @@ export const createUser = async (
   input: CreateUserInput,
   headers: IncomingHttpHeaders,
 ) => {
-  // Better Auth creates the user + hashes the password
+  // Step 1 — Better Auth creates the user (outside transaction, can't be helped)
   const result = await auth.api.createUser({
     body: {
       email: input.email,
@@ -115,60 +119,70 @@ export const createUser = async (
     headers: fromNodeHeaders(headers),
   });
 
-  // Update user with app role + force password change
-  await prisma.user.update({
-    where: { id: result.user.id },
-    data: {
-      userRole: input.userRole,
-      forcePasswordChange: true,
-    },
-  });
+  try {
+    // Step 2 — Everything else in a transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: result.user.id },
+        data: {
+          userRole: input.userRole,
+          forcePasswordChange: true,
+        },
+      });
 
-  // Auto-create role-specific record
-  switch (input.userRole) {
-    case 'student': {
-      const admissionNumber = await generateAdmissionNumber();
-      await prisma.student.create({
-        data: {
-          userId: result.user.id,
-          admissionNumber,
-        },
+      switch (input.userRole) {
+        case 'student': {
+          const admissionNumber = await generateAdmissionNumber();
+          await tx.student.create({
+            data: { userId: result.user.id, admissionNumber },
+          });
+          break;
+        }
+        case 'teacher': {
+          const employeeId = await generateEmployeeId();
+          await tx.teacher.create({
+            data: { userId: result.user.id, employeeId },
+          });
+          break;
+        }
+        case 'parent': {
+          await tx.parent.create({
+            data: { userId: result.user.id },
+          });
+          break;
+        }
+        case 'admin':
+        case 'super_admin': {
+          await tx.admin.create({
+            data: { userId: result.user.id },
+          });
+          break;
+        }
+      }
+    });
+
+    // Step 3 — Send invite email (outside transaction, non-critical)
+    await sendInviteEmail({
+      to: input.email,
+      name: input.name,
+      temporaryPassword: input.temporaryPassword,
+    });
+
+    return result.user;
+  } catch (error) {
+    // Step 4 — Transaction failed, clean up the Better Auth user
+    try {
+      await auth.api.removeUser({
+        body: { userId: result.user.id },
+        headers: fromNodeHeaders(headers),
       });
-      break;
+    } catch (cleanupError) {
+      // Log but don't throw — original error is more important
+      console.error('Failed to clean up orphaned user:', cleanupError);
     }
-    case 'teacher': {
-      const employeeId = await generateEmployeeId();
-      await prisma.teacher.create({
-        data: {
-          userId: result.user.id,
-          employeeId,
-        },
-      });
-      break;
-    }
-    case 'parent': {
-      await prisma.parent.create({
-        data: { userId: result.user.id },
-      });
-      break;
-    }
-    case 'admin':
-    case 'super_admin': {
-      await prisma.admin.create({
-        data: { userId: result.user.id },
-      });
-      break;
-    }
+
+    throw error; // re-throw original error to the controller
   }
-
-  // Send invite email
-  await sendInviteEmail({
-    to: input.email,
-    name: input.name,
-    temporaryPassword: input.temporaryPassword,
-  });
-
-  return result.user;
 };
 
 // Update user name or role

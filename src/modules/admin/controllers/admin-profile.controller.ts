@@ -2,7 +2,25 @@ import type { Request, Response } from 'express';
 import { catchAsync } from '../../../utils/catch-async.js';
 import { sendSuccess, sendError } from '../../../utils/api-response.js';
 import { adminProfileService } from '../services/admin-profile.service.js';
-import { updateAdminSchema } from '../middlewares/admin-profile-validation.js';
+import {
+  adminQuerySchema,
+  updateAdminSchema,
+} from '../middlewares/admin-profile-validation.js';
+
+export const listAdmins = catchAsync(async (req: Request, res: Response) => {
+  const page = Number(req.query.page) || 1;
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+
+  const queryParsed = adminQuerySchema.safeParse(req.query);
+  if (!queryParsed.success)
+    return sendError(res, queryParsed.error.issues[0]?.message, 400);
+
+  const result = await adminProfileService.listAdmins(
+    { page, limit },
+    queryParsed.data,
+  );
+  return sendSuccess(res, result, 'Admins retrieved successfully');
+});
 
 export const getAdminProfile = catchAsync(
   async (req: Request, res: Response) => {

@@ -1,13 +1,34 @@
 import type { Prisma } from '../../../generated/prisma/client.js';
 
+export type PostWithAuthor = Prisma.PostGetPayload<{
+  include: {
+    author: {
+      include: {
+        user: {
+          select: {
+            id: true;
+            name: true;
+            email: true;
+            userRole: true;
+          };
+        };
+      };
+    };
+  };
+}>;
+
 export type ClassArmTeacherWithDetails = Prisma.ClassArmTeacherGetPayload<{
   include: {
     teacher: {
-      select: {
-        id: true;
-        name: true;
-        email: true;
-        userRole: true;
+      include: {
+        user: {
+          select: {
+            id: true;
+            name: true;
+            email: true;
+            userRole: true;
+          };
+        };
       };
     };
     classArm: {
@@ -23,11 +44,15 @@ export type ClassArmTeacherWithDetails = Prisma.ClassArmTeacherGetPayload<{
 export type SubjectTeacherWithDetails = Prisma.SubjectTeacherGetPayload<{
   include: {
     teacher: {
-      select: {
-        id: true;
-        name: true;
-        email: true;
-        userRole: true;
+      include: {
+        user: {
+          select: {
+            id: true;
+            name: true;
+            email: true;
+            userRole: true;
+          };
+        };
       };
     };
   };
