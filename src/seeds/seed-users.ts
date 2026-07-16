@@ -11,119 +11,149 @@ const testUsers = [
     email: 'adebayo.okafor@crestview.edu.ng',
     userRole: 'teacher',
   },
-  {
-    name: 'Mrs. Chioma Eze',
-    email: 'chioma.eze@crestview.edu.ng',
-    userRole: 'teacher',
-  },
-  {
-    name: 'Mr. Emeka Nwosu',
-    email: 'emeka.nwosu@crestview.edu.ng',
-    userRole: 'teacher',
-  },
-  {
-    name: 'Miss. Fatima Bello',
-    email: 'fatima.bello@crestview.edu.ng',
-    userRole: 'teacher',
-  },
-  {
-    name: 'Mr. Segun Adeleke',
-    email: 'segun.adeleke@crestview.edu.ng',
-    userRole: 'teacher',
-  },
-  {
-    name: 'Mrs. Ngozi Okonkwo',
-    email: 'ngozi.okonkwo@crestview.edu.ng',
-    userRole: 'teacher',
-  },
-  {
-    name: 'Mr. Ibrahim Musa',
-    email: 'ibrahim.musa@crestview.edu.ng',
-    userRole: 'teacher',
-  },
 
   // Parents
   {
-    name: 'Mr. Tunde Fashola',
-    email: 'tunde.fashola@gmail.com',
-    userRole: 'parent',
-  },
-  {
-    name: 'Mrs. Amina Yusuf',
-    email: 'amina.yusuf@gmail.com',
-    userRole: 'parent',
-  },
-  {
-    name: 'Mr. Chukwudi Obi',
-    email: 'chukwudi.obi@gmail.com',
-    userRole: 'parent',
-  },
-  {
-    name: 'Mrs. Blessing Adekunle',
-    email: 'blessing.adekunle@gmail.com',
-    userRole: 'parent',
-  },
-  {
-    name: 'Mr. Rotimi Adesanya',
-    email: 'rotimi.adesanya@gmail.com',
+    name: 'Mr. Peter Okoro',
+    email: 'peter.okoro@gmail.com',
     userRole: 'parent',
   },
 
   // Students
   {
-    name: 'Taiwo Fashola',
-    email: 'taiwo.fashola@student.crestview.edu.ng',
+    name: 'David Okoro',
+    email: 'david.okoro@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Kehinde Fashola',
-    email: 'kehinde.fashola@student.crestview.edu.ng',
+    name: 'Deborah Okoro',
+    email: 'deborah.okoro@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Zainab Yusuf',
-    email: 'zainab.yusuf@student.crestview.edu.ng',
+    name: 'Abdul Garba',
+    email: 'abdul.garba@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Chidi Obi',
-    email: 'chidi.obi@student.crestview.edu.ng',
+    name: 'Maryam Garba',
+    email: 'maryam.garba@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Tomisin Adekunle',
-    email: 'tomisin.adekunle@student.crestview.edu.ng',
+    name: 'Michael Udo',
+    email: 'michael.udo@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Femi Adesanya',
-    email: 'femi.adesanya@student.crestview.edu.ng',
+    name: 'Precious Udo',
+    email: 'precious.udo@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Aisha Musa',
-    email: 'aisha.musa@student.crestview.edu.ng',
+    name: 'Joshua Johnson',
+    email: 'joshua.johnson@student.crestview.edu.ng',
     userRole: 'student',
   },
   {
-    name: 'Emeka Nwosu Jr',
-    email: 'emeka.nwosu.jr@student.crestview.edu.ng',
+    name: 'Mercy Johnson',
+    email: 'mercy.johnson@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Nathan Afolabi',
+    email: 'nathan.afolabi@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Stephanie Afolabi',
+    email: 'stephanie.afolabi@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Goodness Nwankwo',
+    email: 'goodness.nwankwo@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Victor Oyeniyi',
+    email: 'victor.oyeniyi@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Jessica Bassey',
+    email: 'jessica.bassey@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Philip Ekanem',
+    email: 'philip.ekanem@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Amarachi Chukwu',
+    email: 'amarachi.chukwu@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Ebenezer Ojo',
+    email: 'ebenezer.ojo@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Rachael Ogunleye',
+    email: 'rachael.ogunleye@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Daniel Ezeani',
+    email: 'daniel.ezeani@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Favour Onyekachi',
+    email: 'favour.onyekachi@student.crestview.edu.ng',
+    userRole: 'student',
+  },
+  {
+    name: 'Isaac Omotoso',
+    email: 'isaac.omotoso@student.crestview.edu.ng',
     userRole: 'student',
   },
 ] as const;
 
 const generateAdmissionNumber = async (): Promise<string> => {
   const year = new Date().getFullYear();
-  const count = await prisma.student.count();
-  const padded = String(count + 1).padStart(4, '0');
-  return `CRV/${year}/${padded}`;
+  const prefix = `CRV/${year}/`;
+
+  const last = await prisma.student.findFirst({
+    where: { admissionNumber: { startsWith: prefix } },
+    orderBy: { admissionNumber: 'desc' },
+  });
+
+  const lastNumber = last
+    ? parseInt(last.admissionNumber.replace(prefix, ''), 10)
+    : 0;
+
+  const padded = String(lastNumber + 1).padStart(4, '0');
+  return `${prefix}${padded}`;
 };
 
 const generateEmployeeId = async (): Promise<string> => {
   const year = new Date().getFullYear();
-  const count = await prisma.teacher.count();
-  const padded = String(count + 1).padStart(3, '0');
-  return `CRV/TCH/${year}/${padded}`;
+  const prefix = `CRV/TCH/${year}/`;
+
+  const last = await prisma.teacher.findFirst({
+    where: { employeeId: { startsWith: prefix } },
+    orderBy: { employeeId: 'desc' },
+  });
+
+  const lastNumber = last
+    ? parseInt(last.employeeId.replace(prefix, ''), 10)
+    : 0;
+
+  const padded = String(lastNumber + 1).padStart(3, '0');
+  return `${prefix}${padded}`;
 };
 
 async function seedTestUsers() {

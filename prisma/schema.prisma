@@ -133,6 +133,9 @@ model Student {
 
   parents     StudentParent[]
   enrollments StudentEnrollment[]
+  assignmentSubmissions AssignmentSubmission[]
+  attendanceRecords Attendance[]
+  scores Score[]
 
   @@map("students")
 }
@@ -194,6 +197,10 @@ model Teacher {
 
   classArmTeachers ClassArmTeacher[]
   subjectTeachers  SubjectTeacher[]
+  assignments Assignment[]
+  gradedSubmissions  AssignmentSubmission[] @relation("GradedSubmissions")
+  markedAttendance Attendance[] @relation("MarkedAttendance")
+  markedScores Score[] @relation("MarkedScores")
 
   @@map("teachers")
 }
@@ -255,9 +262,13 @@ model AcademicSession {
 
   feeStructures FeeStructure[]
   timetableEntries TimetableEntry[]
+  studentEnrollments StudentEnrollment[]
+  assignments Assignment[]
+  attendanceRecords Attendance[]
+  scores Score[]
 
   @@map("academic_sessions")
-  studentEnrollments StudentEnrollment[]
+  
 }
 
 model Term {
@@ -273,9 +284,13 @@ model Term {
   session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   feeStructures FeeStructure[]
+  assignments Assignment[]
+  attendanceRecords Attendance[]
+  scores Score[]
 
   @@unique([sessionId, name]) // one term per name per session
   @@map("terms")
+  
 }
 
 enum Section {
@@ -329,10 +344,13 @@ model ClassArm {
   classArmTeachers ClassArmTeacher[]
 
   timetableEntries TimetableEntry[]
+  studentEnrollments StudentEnrollment[]
+  assignments Assignment[]
+  attendanceRecords Attendance[]
+  scores Score[]
 
   @@unique([classLevelId, armId]) // an arm can only be assigned once per class
   @@map("class_arms")
-  studentEnrollments StudentEnrollment[]
 }
 
 model Subject {
@@ -348,6 +366,8 @@ model Subject {
   subjectTeachers SubjectTeacher[]
 
   timetableEntries TimetableEntry[]
+  assignments Assignment[]
+  scores Score[]
 
   @@map("subjects")
 }
@@ -545,4 +565,145 @@ model Post {
   author   Admin  @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("posts")
+}
+
+// Teacher tables
+enum AssignmentType {
+  Typed
+  FileUpload
+}
+
+model Assignment {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  type        AssignmentType
+  dueDate     DateTime
+  isPublished Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  classArmId  String
+  classArm    ClassArm        @relation(fields: [classArmId], references: [id])
+
+  subjectId   String
+  subject     Subject         @relation(fields: [subjectId], references: [id])
+
+  teacherId   String
+  teacher     Teacher         @relation(fields: [teacherId], references: [id])
+
+  sessionId   String
+  session     AcademicSession @relation(fields: [sessionId], references: [id])
+
+  termId      String
+  term        Term            @relation(fields: [termId], references: [id])
+
+  submissions AssignmentSubmission[]
+
+  @@index([classArmId, subjectId, sessionId])
+  @@index([teacherId])
+}
+
+model AssignmentSubmission {
+  id          String    @id @default(cuid())
+  content     String?
+  fileUrl     String?
+  submittedAt DateTime  @default(now())
+  score       Decimal?  @db.Decimal(5, 2)
+  feedback    String?
+  gradedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id])
+
+  // gradedById -> Teacher.id (NOT User.id), consistent with your existing
+  // ClassArmTeacher / SubjectTeacher / Post pattern
+  gradedById   String?
+  gradedBy     Teacher?   @relation("GradedSubmissions", fields: [gradedById], references: [id])
+
+  @@unique([assignmentId, studentId])
+}
+
+enum AttendanceStatus {
+  Present
+  Absent
+  Late
+  Excused
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  date      DateTime         @db.Date
+  status    AttendanceStatus
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id])
+
+  termId String
+  term   Term   @relation(fields: [termId], references: [id])
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id])
+
+  // markedById -> Teacher.id (NOT User.id), consistent with your
+  // ClassArmTeacher / SubjectTeacher / Assignment pattern
+  markedById String
+  markedBy   Teacher @relation("MarkedAttendance", fields: [markedById], references: [id])
+
+  // One attendance record per student, per class arm, per calendar day —
+  // marking twice for the same day upserts rather than duplicating.
+  @@unique([studentId, classArmId, date])
+  @@index([classArmId, date])
+}
+
+enum Grade {
+  A
+  B
+  C
+  D
+  E
+  F
+}
+
+model Score {
+  id        String   @id @default(cuid())
+  caScore   Decimal  @db.Decimal(5, 2)
+  examScore Decimal  @db.Decimal(5, 2)
+  total     Decimal  @db.Decimal(5, 2) // computed server-side: caScore + examScore
+  grade     Grade                       // computed server-side from total
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id])
+
+  termId String
+  term   Term   @relation(fields: [termId], references: [id])
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id])
+
+  // markedById -> Teacher.id (NOT User.id)
+  markedById String
+  markedBy   Teacher @relation("MarkedScores", fields: [markedById], references: [id])
+
+  // One score per student, per subject, per term
+  @@unique([studentId, subjectId, termId, sessionId])
+  @@index([classArmId, subjectId, termId, sessionId])
 }

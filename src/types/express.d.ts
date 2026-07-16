@@ -7,6 +7,9 @@ declare global {
     interface Request {
       user?: User;
       session?: Session;
+      teacherId?: string;
+      studentId?: string;
+      parentId?: string;
     }
   }
 }
