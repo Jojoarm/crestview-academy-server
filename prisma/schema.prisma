@@ -136,6 +136,7 @@ model Student {
   assignmentSubmissions AssignmentSubmission[]
   attendanceRecords Attendance[]
   scores Score[]
+  reportCards ReportCard[]
 
   @@map("students")
 }
@@ -201,6 +202,7 @@ model Teacher {
   gradedSubmissions  AssignmentSubmission[] @relation("GradedSubmissions")
   markedAttendance Attendance[] @relation("MarkedAttendance")
   markedScores Score[] @relation("MarkedScores")
+   authoredReportCards ReportCard[] @relation("ReportCardAuthor")
 
   @@map("teachers")
 }
@@ -266,6 +268,7 @@ model AcademicSession {
   assignments Assignment[]
   attendanceRecords Attendance[]
   scores Score[]
+  reportCards ReportCard[]
 
   @@map("academic_sessions")
   
@@ -287,6 +290,7 @@ model Term {
   assignments Assignment[]
   attendanceRecords Attendance[]
   scores Score[]
+  reportCards ReportCard[]
 
   @@unique([sessionId, name]) // one term per name per session
   @@map("terms")
@@ -348,6 +352,7 @@ model ClassArm {
   assignments Assignment[]
   attendanceRecords Attendance[]
   scores Score[]
+  reportCards ReportCard[]
 
   @@unique([classLevelId, armId]) // an arm can only be assigned once per class
   @@map("class_arms")
@@ -706,4 +711,38 @@ model Score {
   // One score per student, per subject, per term
   @@unique([studentId, subjectId, termId, sessionId])
   @@index([classArmId, subjectId, termId, sessionId])
+}
+
+enum ReportCardStatus {
+  Draft
+  Published
+}
+
+model ReportCard {
+  id          String           @id @default(cuid())
+  remark      String
+  status      ReportCardStatus @default(Draft)
+  publishedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  classArmId String
+  classArm   ClassArm @relation(fields: [classArmId], references: [id])
+
+  termId String
+  term   Term   @relation(fields: [termId], references: [id])
+
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id])
+
+  // createdById -> Teacher.id (NOT User.id). Whoever wrote/last edited the
+  // remark — always the class teacher, enforced in the service layer.
+  createdById String
+  createdBy   Teacher @relation("ReportCardAuthor", fields: [createdById], references: [id])
+
+  // One report card per student, per term
+  @@unique([studentId, termId, sessionId])
 }

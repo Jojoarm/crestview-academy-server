@@ -3,6 +3,10 @@ import { z } from 'zod';
 export const markScoresSchema = z.object({
   classArmId: z.string('Class arm is required'),
   subjectId: z.string('Subject is required'),
+  // Both optional — default to the active session's active term. Pass
+  // both explicitly to enter/edit scores for a past term.
+  sessionId: z.string().optional(),
+  termId: z.string().optional(),
   records: z
     .array(
       z.object({
@@ -23,6 +27,8 @@ export type MarkScoresInput = z.infer<typeof markScoresSchema>;
 export const listScoresQuerySchema = z.object({
   classArmId: z.string('Class arm is required'),
   subjectId: z.string().optional(),
+  sessionId: z.string().optional(),
+  termId: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(20),
 });

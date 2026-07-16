@@ -6,6 +6,7 @@ import prisma from '../../../config/prisma.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { getActiveSessionAndTerm } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
+import { resolveSession, resolveTerm } from '../lib/utils.js';
 import type {
   ListScoresQuery,
   MarkScoresInput,
@@ -31,17 +32,16 @@ async function assertScoreAccess(
     }),
     prisma.classArmTeacher.findUnique({
       where: {
-        classArmId_teacherId_sessionId: {
-          classArmId,
-          teacherId,
-          sessionId,
-        },
+        classArmId_teacherId_sessionId: { classArmId, teacherId, sessionId },
       },
     }),
   ]);
 
   if (!teachesSubject && !isClassTeacher) {
-    throw createError('You are not assigned to this subject or class arm', 403);
+    throw createError(
+      'You are not assigned to this subject or class arm in the given session',
+      403,
+    );
   }
 }
 
@@ -56,7 +56,8 @@ function computeGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' | 'F' {
 
 export const teacherScoreService = {
   async markScores(teacherId: string, input: MarkScoresInput): Promise<void> {
-    const { session, term } = await getActiveSessionAndTerm();
+    const session = await resolveSession(input.sessionId);
+    const term = await resolveTerm(session.id, input.termId);
 
     await assertScoreAccess(
       teacherId,
@@ -123,12 +124,12 @@ export const teacherScoreService = {
   },
 
   async getScores(teacherId: string, query: ListScoresQuery) {
-    const { session } = await getActiveSessionAndTerm();
+    const session = await resolveSession(query.sessionId);
+    const term = await resolveTerm(session.id, query.termId);
 
     // If a specific subject is requested, enforce the same access check as
     // marking. If viewing across all subjects for the class arm, only
-    // class-teacher access makes sense (a subject teacher shouldn't see
-    // scores for subjects they don't teach) — checked directly here.
+    // class-teacher access makes sense.
     if (query.subjectId) {
       await assertScoreAccess(
         teacherId,
@@ -157,9 +158,11 @@ export const teacherScoreService = {
 
     const where: Prisma.ScoreWhereInput = {
       classArmId: query.classArmId,
+      termId: term.id,
       sessionId: session.id,
       ...(query.subjectId ? { subjectId: query.subjectId } : {}),
     };
+
     const [total, data] = await Promise.all([
       prisma.score.count({ where }),
       prisma.score.findMany({
@@ -186,6 +189,8 @@ export const teacherScoreService = {
     ]);
 
     return {
+      term: { id: term.id, name: term.name },
+      session: { id: session.id, name: session.name },
       data,
       meta: {
         total,
