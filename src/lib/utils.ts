@@ -23,6 +23,22 @@ export async function getActiveSessionAndTerm() {
   return { session, term };
 }
 
+export const JS_DAY_TO_ENUM: Record<number, string | null> = {
+  0: null,
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: null,
+};
+
+export function todayDateOnly(): Date {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+}
+
 export function normalizeDate(dateInput: string): Date {
   const date = new Date(dateInput);
   date.setUTCHours(0, 0, 0, 0);

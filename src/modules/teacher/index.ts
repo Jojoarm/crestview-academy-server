@@ -8,6 +8,7 @@ import reportCardRoutes from './routes/report-card.routes.js';
 import academicRoutes from './routes/academic.routes.js';
 import timetableRoutes from './routes/timetable.routes.js';
 import postRoutes from './routes/post.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 import { requireAuth } from '../../middlewares/auth.js';
 import { requireTeacher } from './middlewares/requireTeacher.js';
@@ -26,5 +27,6 @@ teacherRouter.use('/scores', scoreRoutes);
 teacherRouter.use('/', academicRoutes);
 teacherRouter.use('/', timetableRoutes);
 teacherRouter.use('/posts', postRoutes);
+teacherRouter.use('/', dashboardRoutes);
 
 export default teacherRouter;
