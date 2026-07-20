@@ -1,7 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import { getActiveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
-import { assertHasClassArmAccess } from '../lib/utils.js';
+import { assertHasClassArmAccess, resolveSession } from '../lib/utils.js';
 
 interface ClassArmStudent {
   studentId: string;
@@ -20,8 +20,9 @@ export const teacherClassArmSubjectsService = {
   async getClassArmStudents(
     teacherId: string,
     classArmId: string,
+    sessionId?: string,
   ): Promise<ClassArmStudent[]> {
-    const session = await getActiveSession();
+    const session = await resolveSession(sessionId);
 
     await assertHasClassArmAccess(teacherId, classArmId, session.id);
 

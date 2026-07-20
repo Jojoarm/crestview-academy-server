@@ -1,5 +1,6 @@
 import { sendError, sendSuccess } from '../../../utils/api-response.js';
 import { catchAsync } from '../../../utils/catch-async.js';
+import { getQueryString } from '../../../utils/get-query-string.js';
 import { requireParam } from '../../../utils/require-params.js';
 import { requireTeacherId } from '../lib/utils.js';
 import { teacherReportCardService } from '../services/report-card.service.js';
@@ -7,10 +8,6 @@ import {
   reportCardQuerySchema,
   upsertRemarkSchema,
 } from '../validations/report-card.validation.js';
-
-function getQueryString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
 
 export const getReportCard = catchAsync(async (req, res) => {
   const teacherId = requireTeacherId(req);

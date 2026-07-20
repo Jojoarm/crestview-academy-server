@@ -1,7 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
-import { getActiveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
+import { resolveSession } from '../lib/utils.js';
 import type { UpdateTeacherInput } from '../validations/profile.validation.js';
 
 const teacherInclude = {
@@ -73,8 +73,11 @@ export const teacherProfileService = {
     });
   },
 
-  async getTeacherClasses(id: string): Promise<ClassArmsWithDetails[]> {
-    const session = await getActiveSession();
+  async getTeacherClasses(
+    id: string,
+    sessionId?: string,
+  ): Promise<ClassArmsWithDetails[]> {
+    const session = await resolveSession(sessionId);
 
     const classArms = await prisma.classArmTeacher.findMany({
       where: { teacherId: id, sessionId: session.id },
@@ -88,8 +91,11 @@ export const teacherProfileService = {
     return classArms.map((cat) => cat.classArm);
   },
 
-  async getTeacherSubjects(id: string): Promise<SubjectTeacherWithDetails[]> {
-    const session = await getActiveSession();
+  async getTeacherSubjects(
+    id: string,
+    sessionId?: string,
+  ): Promise<SubjectTeacherWithDetails[]> {
+    const session = await resolveSession(sessionId);
 
     return prisma.subjectTeacher.findMany({
       where: { teacherId: id, sessionId: session.id },
