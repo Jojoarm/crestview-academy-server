@@ -1,7 +1,7 @@
 import prisma from '../../../config/prisma.js';
-import { getActiveSession } from '../../../lib/utils.js';
+import { getActiveSession, resolveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
-import { assertHasClassArmAccess, resolveSession } from '../lib/utils.js';
+import { assertHasClassArmAccess } from '../lib/utils.js';
 
 interface ClassArmStudent {
   studentId: string;

@@ -9,6 +9,8 @@ import authRouter from './modules/auth/index.js';
 import { env } from './utils/env.js';
 import logger from './utils/logger.js';
 import teacherRouter from './modules/teacher/index.js';
+import parentRouter from './modules/parent/index.js';
+import sharedRouter from './modules/shared/index.js';
 
 const app = express();
 const PORT = env.PORT;
@@ -30,6 +32,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/admin', adminRouter);
 app.use('/api/profile', authRouter);
 app.use('/api/teacher', teacherRouter);
+app.use('/api/parent', parentRouter);
+app.use('/api/shared', sharedRouter);
 
 // Health check
 app.get('/health', (_, res) => {

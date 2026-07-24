@@ -27,18 +27,6 @@ type FeeStructureQueryResult = Prisma.FeeStructureGetPayload<{
   include: typeof feeStructureInclude;
 }>;
 
-const getActiveSession = async () => {
-  const session = await prisma.academicSession.findFirst({
-    where: { isActive: true },
-  });
-  if (!session)
-    throw createError(
-      'No active session found. Set an active session first.',
-      400,
-    );
-  return session;
-};
-
 // Uniqueness check (enforced in service since constraints are conditional)
 
 const checkDuplicate = async (
@@ -348,57 +336,5 @@ export const feeService = {
     // if (paymentCount > 0) throw createError('Cannot delete a fee structure with recorded payments', 400);
 
     await prisma.feeStructure.delete({ where: { id } });
-  },
-
-  // Convenience: get all fees applicable to a student
-  // Used by payment tracking to know what a student in a given class/term owes
-
-  async getApplicableFees(classLevelId: string): Promise<{
-    oneTime: FeeStructureQueryResult[];
-    annual: FeeStructureQueryResult[];
-    perTerm: FeeStructureQueryResult[];
-  }> {
-    const session = await getActiveSession();
-
-    const activeTerm = await prisma.term.findFirst({
-      where: { sessionId: session.id, isActive: true },
-    });
-
-    const [oneTime, annual, perTerm] = await Promise.all([
-      prisma.feeStructure.findMany({
-        where: {
-          isActive: true,
-          feeType: { frequency: 'OneTime', isActive: true },
-          OR: [{ classLevelId: null }, { classLevelId }],
-        },
-        include: feeStructureInclude,
-      }),
-      prisma.feeStructure.findMany({
-        where: {
-          isActive: true,
-          sessionId: session.id,
-          feeType: { frequency: 'Annual', isActive: true },
-          OR: [{ classLevelId: null }, { classLevelId }],
-        },
-        include: feeStructureInclude,
-      }),
-      activeTerm
-        ? prisma.feeStructure.findMany({
-            where: {
-              isActive: true,
-              sessionId: session.id,
-              termId: activeTerm.id,
-              feeType: { frequency: 'PerTerm', isActive: true },
-              OR: [{ classLevelId: null }, { classLevelId }],
-            },
-            include: feeStructureInclude,
-          })
-        : prisma.feeStructure.findMany({
-            where: { id: 'none' },
-            include: feeStructureInclude,
-          }),
-    ]);
-
-    return { oneTime, annual, perTerm };
   },
 };

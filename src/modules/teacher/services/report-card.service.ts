@@ -1,11 +1,7 @@
 import prisma from '../../../config/prisma.js';
+import { resolveSession, resolveTerm } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
-import {
-  assertClassTeacher,
-  assertStudentEnrolled,
-  resolveSession,
-  resolveTerm,
-} from '../lib/utils.js';
+import { assertClassTeacher, assertStudentEnrolled } from '../lib/utils.js';
 import type { UpsertRemarkInput } from '../validations/report-card.validation.js';
 
 export const teacherReportCardService = {

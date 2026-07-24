@@ -9,6 +9,7 @@ import {
 } from '../middlewares/fee-structure-validation.js';
 import { catchAsync } from '../../../utils/catch-async.js';
 import { sendError, sendSuccess } from '../../../utils/api-response.js';
+import { getAllApplicableFees } from '../../shared/services/fee-structure.service.js';
 
 // Fee Type Controllers
 
@@ -131,7 +132,7 @@ export const deleteFeeStructure = catchAsync(
 export const getApplicableFees = catchAsync(
   async (req: Request, res: Response) => {
     const { classLevelId } = req.params;
-    const result = await feeService.getApplicableFees(classLevelId as string);
+    const result = await getAllApplicableFees(classLevelId as string);
     return sendSuccess(res, result, 'Applicable fees retrieved successfully');
   },
 );

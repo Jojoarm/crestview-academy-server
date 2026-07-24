@@ -1,6 +1,6 @@
 import prisma from '../../../config/prisma.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
-import { resolveSession } from '../lib/utils.js';
+import { resolveSession } from '../../../lib/utils.js';
 
 type TimetableRole = 'ClassTeacher' | 'SubjectTeacher';
 

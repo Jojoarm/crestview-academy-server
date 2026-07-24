@@ -1,7 +1,7 @@
 import prisma from '../../../config/prisma.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
+import { resolveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
-import { resolveSession } from '../lib/utils.js';
 import type { UpdateTeacherInput } from '../validations/profile.validation.js';
 
 const teacherInclude = {

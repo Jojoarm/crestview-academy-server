@@ -4,9 +4,12 @@
 
 import prisma from '../../../config/prisma.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
-import { getActiveSessionAndTerm } from '../../../lib/utils.js';
+import {
+  getActiveSessionAndTerm,
+  resolveSession,
+  resolveTerm,
+} from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
-import { resolveSession, resolveTerm } from '../lib/utils.js';
 import type {
   ListScoresQuery,
   MarkScoresInput,
