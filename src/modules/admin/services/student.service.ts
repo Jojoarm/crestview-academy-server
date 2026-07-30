@@ -1,14 +1,16 @@
 import prisma from '../../../config/prisma.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
-import { getActiveSession } from '../../../lib/utils.js';
+import { getActiveSession, resolveSession } from '../../../lib/utils.js';
 import { createError } from '../../../middlewares/error-handler.js';
 import type {
   PaginatedResponse,
   PaginationQuery,
 } from '../../../types/common.types.js';
 import type {
+  BatchPromoteInput,
   EnrollStudentInput,
   LinkParentInput,
+  PromoteStudentInput,
   StudentQuery,
   UpdateStudentInput,
 } from '../middlewares/student-validation.js';
@@ -36,14 +38,14 @@ const studentInclude = {
     },
   },
   enrollments: {
-    where: { session: { isActive: true }, isActive: true },
+    where: { isActive: true },
     include: {
       classArm: {
         include: { arm: true, classLevel: true },
       },
       session: true,
     },
-    take: 1, // only current enrollment
+    take: 1,
   },
 } as const;
 
@@ -57,6 +59,57 @@ const enrollmentInclude = {
 type StudentWithDetails = Prisma.StudentGetPayload<{
   include: typeof studentInclude;
 }>;
+
+interface Assignment {
+  studentId: string;
+  classArmId: string;
+  sessionId: string; // same toSessionId for every assignment in one call
+}
+
+// Deactivate every currently-active enrollment for these students (across
+// ANY session — a student only ever has one active enrollment at a time),
+// then create or update their enrollment for the target session.
+async function deactivateAndAssign(
+  tx: Prisma.TransactionClient,
+  toSessionId: string,
+  assignments: Assignment[],
+) {
+  const studentIds = assignments.map((a) => a.studentId);
+
+  await tx.studentEnrollment.updateMany({
+    where: { studentId: { in: studentIds }, isActive: true },
+    data: { isActive: false },
+  });
+
+  const existing = await tx.studentEnrollment.findMany({
+    where: { studentId: { in: studentIds }, sessionId: toSessionId },
+    select: { studentId: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.studentId));
+
+  const toCreate = assignments.filter((a) => !existingIds.has(a.studentId));
+  const toUpdate = assignments.filter((a) => existingIds.has(a.studentId));
+
+  if (toCreate.length > 0) {
+    await tx.studentEnrollment.createMany({
+      data: toCreate.map((a) => ({ ...a, isActive: true })),
+    });
+  }
+
+  await Promise.all(
+    toUpdate.map((a) =>
+      tx.studentEnrollment.update({
+        where: {
+          studentId_sessionId: {
+            studentId: a.studentId,
+            sessionId: a.sessionId,
+          },
+        },
+        data: { classArmId: a.classArmId, isActive: true },
+      }),
+    ),
+  );
+}
 
 // Student Service
 
@@ -99,7 +152,6 @@ export const studentService = {
         enrollments: {
           some: {
             isActive: true,
-            session: { isActive: true },
             classArm: { classLevel: { section: query.section } },
           },
         },
@@ -211,7 +263,7 @@ export const studentService = {
     });
     if (existing) {
       throw createError(
-        'Student is already enrolled for the current session. Use PATCH to change class arm.',
+        'Student is already enrolled for the current session. Use update to change class arm.',
         409,
       );
     }
@@ -234,7 +286,7 @@ export const studentService = {
     });
     if (!enrollment) {
       throw createError(
-        'Student is not enrolled for the current session. Use POST to enroll.',
+        'Student is not enrolled for the current session.',
         404,
       );
     }
@@ -321,9 +373,13 @@ export const studentService = {
   // Students by Class Arm
   async getStudentsByClassArm(
     classArmId: string,
-    { page = 1, limit = 20 }: PaginationQuery,
+    {
+      page = 1,
+      limit = 20,
+      sessionId,
+    }: PaginationQuery & { sessionId?: string },
   ): Promise<PaginatedResponse<StudentWithDetails>> {
-    const session = await getActiveSession();
+    const session = await resolveSession(sessionId);
     const skip = (page - 1) * limit;
 
     const classArm = await prisma.classArm.findUnique({
@@ -353,5 +409,78 @@ export const studentService = {
       data: students,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  },
+
+  async promoteStudent(id: string, data: PromoteStudentInput) {
+    const [student, session, classArm] = await Promise.all([
+      prisma.student.findUnique({ where: { id } }),
+      prisma.academicSession.findUnique({ where: { id: data.toSessionId } }),
+      prisma.classArm.findUnique({ where: { id: data.toClassArmId } }),
+    ]);
+
+    if (!student) throw createError('Student not found', 404);
+    if (!student.isActive)
+      throw createError('Cannot promote an inactive student', 400);
+    if (!session) throw createError('Target session not found', 404);
+    if (!classArm) throw createError('Target class arm not found', 404);
+
+    await prisma.$transaction((tx) =>
+      deactivateAndAssign(tx, data.toSessionId, [
+        {
+          studentId: id,
+          classArmId: data.toClassArmId,
+          sessionId: data.toSessionId,
+        },
+      ]),
+    );
+    return prisma.studentEnrollment.findUnique({
+      where: {
+        studentId_sessionId: { studentId: id, sessionId: data.toSessionId },
+      },
+      include: enrollmentInclude,
+    });
+  },
+
+  async batchPromote(data: BatchPromoteInput) {
+    const studentIds = data.students.map((s) => s.studentId);
+    const classArmIds = [...new Set(data.students.map((s) => s.toClassArmId))];
+
+    const [session, students, classArms] = await Promise.all([
+      prisma.academicSession.findUnique({ where: { id: data.toSessionId } }),
+      prisma.student.findMany({ where: { id: { in: studentIds } } }),
+      prisma.classArm.findMany({ where: { id: { in: classArmIds } } }),
+    ]);
+
+    if (!session) throw createError('Target session not found', 404);
+
+    const foundStudentIds = new Set(students.map((s) => s.id));
+    const missingStudent = studentIds.find((id) => !foundStudentIds.has(id));
+    if (missingStudent)
+      throw createError(`Student not found: ${missingStudent}`, 404);
+
+    const inactiveStudent = students.find((s) => !s.isActive);
+    if (inactiveStudent) {
+      throw createError(
+        `Cannot promote inactive student: ${inactiveStudent.id}`,
+        400,
+      );
+    }
+
+    const foundClassArmIds = new Set(classArms.map((c) => c.id));
+    const missingClassArm = classArmIds.find((id) => !foundClassArmIds.has(id));
+    if (missingClassArm)
+      throw createError(`Class arm not found: ${missingClassArm}`, 404);
+
+    const assignments: Assignment[] = data.students.map((s) => ({
+      studentId: s.studentId,
+      classArmId: s.toClassArmId,
+      sessionId: data.toSessionId,
+    }));
+
+    await prisma.$transaction((tx) =>
+      deactivateAndAssign(tx, data.toSessionId, assignments),
+    );
+
+    return { promotedCount: assignments.length };
   },
 };

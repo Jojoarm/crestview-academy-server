@@ -47,7 +47,26 @@ export const studentQuerySchema = z.object({
     .optional(),
 });
 
+export const promoteStudentSchema = z.object({
+  toSessionId: z.string('Target session ID is required'),
+  toClassArmId: z.string('Target class arm ID is required'),
+});
+export type PromoteStudentInput = z.infer<typeof promoteStudentSchema>;
+
+export const batchPromoteSchema = z.object({
+  toSessionId: z.string('Target session ID is required'),
+  students: z
+    .array(
+      z.object({
+        studentId: z.string(),
+        toClassArmId: z.string(),
+      }),
+    )
+    .min(1, 'At least one student must be selected'),
+});
+
 export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
 export type EnrollStudentInput = z.infer<typeof enrollStudentSchema>;
 export type LinkParentInput = z.infer<typeof linkParentSchema>;
 export type StudentQuery = z.infer<typeof studentQuerySchema>;
+export type BatchPromoteInput = z.infer<typeof batchPromoteSchema>;

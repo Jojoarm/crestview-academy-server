@@ -3,11 +3,14 @@ import { catchAsync } from '../../../utils/catch-async.js';
 import { sendSuccess, sendError } from '../../../utils/api-response.js';
 import { studentService } from '../services/student.service.js';
 import {
+  batchPromoteSchema,
   enrollStudentSchema,
   linkParentSchema,
+  promoteStudentSchema,
   studentQuerySchema,
   updateStudentSchema,
 } from '../middlewares/student-validation.js';
+import { requireParam } from '../../../utils/require-params.js';
 
 export const listStudents = catchAsync(async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
@@ -116,16 +119,40 @@ export const unlinkParent = catchAsync(async (req: Request, res: Response) => {
 });
 
 // Students by Class Arm
-
 export const getStudentsByClassArm = catchAsync(
   async (req: Request, res: Response) => {
     const page = Number(req.query.page) || 1;
     const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const sessionId = req.query.sessionId as string | undefined;
 
     const result = await studentService.getStudentsByClassArm(
       req.params.classArmId as string,
-      { page, limit },
+      {
+        page,
+        limit,
+        ...(sessionId !== undefined && { sessionId }),
+      },
     );
     return sendSuccess(res, result, 'Students retrieved successfully');
   },
 );
+
+export const promoteStudent = catchAsync(async (req, res) => {
+  const id = requireParam(req, 'id');
+
+  const parsed = promoteStudentSchema.safeParse(req.body);
+  if (!parsed.success)
+    return sendError(res, parsed.error.issues[0]?.message, 400);
+
+  const result = await studentService.promoteStudent(id, parsed.data);
+  return sendSuccess(res, result, 'Student promoted successfully');
+});
+
+export const batchPromote = catchAsync(async (req, res) => {
+  const parsed = batchPromoteSchema.safeParse(req.body);
+  if (!parsed.success)
+    return sendError(res, parsed.error.issues[0]?.message, 400);
+
+  const result = await studentService.batchPromote(parsed.data);
+  return sendSuccess(res, result, 'Students promoted successfully');
+});

@@ -27,6 +27,20 @@ export const activeSession = await prisma.academicSession.findFirst({
   where: { isActive: true },
 });
 
+export async function resolveEnrollment(studentId: string, sessionId: string) {
+  const enrollment = await prisma.studentEnrollment.findUnique({
+    where: { studentId_sessionId: { studentId, sessionId } },
+    select: { classArmId: true },
+  });
+  if (!enrollment) {
+    throw createError(
+      'Student is not enrolled in any class for this session',
+      404,
+    );
+  }
+  return enrollment;
+}
+
 export const JS_DAY_TO_ENUM: Record<number, string | null> = {
   0: null,
   1: 'Monday',

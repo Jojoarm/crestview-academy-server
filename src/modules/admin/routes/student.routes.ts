@@ -9,6 +9,8 @@ import {
   getEnrollmentHistory,
   linkParent,
   unlinkParent,
+  promoteStudent,
+  batchPromote,
 } from '../controllers/student.controller.js';
 import { requireAdmin } from '../../../middlewares/require-admin.js';
 
@@ -24,6 +26,10 @@ studentRouter.delete('/:id', deactivateStudent);
 studentRouter.post('/:id/enroll', enrollStudent);
 studentRouter.patch('/:id/enroll', updateEnrollment);
 studentRouter.get('/:id/enrollments', getEnrollmentHistory);
+
+// student promotion
+studentRouter.post('/:id/promote', promoteStudent);
+studentRouter.post('/promote-batch', batchPromote);
 
 // Parent linking
 studentRouter.post('/:id/parents', linkParent);

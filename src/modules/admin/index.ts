@@ -22,6 +22,7 @@ import adminProfileRouter from './routes/admin-profile.routes.js';
 import { requireAdmin } from '../../middlewares/require-admin.js';
 import { getStudentsByClassArm } from './controllers/student.controller.js';
 import analyticsRouter from './routes/analytics.routes.js';
+import reportCardRouter from './routes/report-card.routes.js';
 
 const router = Router();
 
@@ -44,11 +45,14 @@ router.use('/parents', parentRouter);
 router.use('/admins', adminProfileRouter);
 router.use('/analytics', analyticsRouter);
 
-// ─── Class arm students (convenience endpoint)
+//  Class arm students (convenience endpoint)
 router.get(
   '/class-arms/:classArmId/students',
   requireAdmin,
   getStudentsByClassArm,
 );
+
+//  Report card route
+router.use('/report-cards', reportCardRouter);
 
 export default router;
