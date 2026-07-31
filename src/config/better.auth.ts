@@ -72,11 +72,12 @@ export const auth = betterAuth({
   },
 
   advanced: {
-    crossSubdomainCookies: {
-      enabled: true,
-    },
+    // crossSubdomainCookies: {
+    //   enabled: true,
+    // },
     defaultCookieAttributes: {
-      sameSite: 'none',
+      // sameSite: 'none',
+      sameSite: 'lax',
       secure: true,
     },
   },

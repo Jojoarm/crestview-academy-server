@@ -25,6 +25,10 @@ app.use(
 
 // Better Auth - Handles all /api/auth/* routes (login, logout, verify, reset-password etc.)
 app.all('/api/auth/*splat', toNodeHandler(auth));
+app.use((req, res, next) => {
+  console.log('Origin:', req.headers.origin);
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
